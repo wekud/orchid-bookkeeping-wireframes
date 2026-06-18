@@ -5,6 +5,178 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>兰花记账软件 - 工人管理</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .add-worker-fab {
+      position: fixed;
+      right: 20px;
+      bottom: 80px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #3d8156;
+      color: #fff;
+      font-size: 28px;
+      border: none;
+      box-shadow: 0 4px 14px rgba(36, 66, 45, 0.35);
+      cursor: pointer;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+    }
+    .add-worker-fab:active { transform: scale(0.92); }
+
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 18px 18px 0 0;
+      padding: 24px 20px 32px;
+      width: 100%;
+      max-width: 420px;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.open .modal-box {
+      transform: translateY(0);
+    }
+    .modal-box h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      color: #234431;
+    }
+
+    /* 月度日历 */
+    .month-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .month-nav button {
+      background: none;
+      border: 1px solid #c7d4c3;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 14px;
+      color: #3d6b4f;
+      cursor: pointer;
+    }
+    .month-nav span {
+      font-weight: 700;
+      color: #234431;
+      font-size: 15px;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+    .calendar-grid .cal-header {
+      font-size: 11px;
+      color: #64796b;
+      padding: 4px 0;
+      font-weight: 600;
+    }
+    .calendar-grid .cal-day {
+      border-radius: 10px;
+      padding: 6px 2px;
+      font-size: 13px;
+      color: #234431;
+      cursor: pointer;
+      position: relative;
+      min-height: 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .cal-day.empty { cursor: default; }
+    .cal-day.full-day {
+      background: #d4edda;
+      color: #1a5632;
+      font-weight: 700;
+    }
+    .cal-day.half-day {
+      background: #fff3cd;
+      color: #856404;
+      font-weight: 700;
+    }
+    .cal-day .cal-mark {
+      font-size: 9px;
+      line-height: 1;
+    }
+    .cal-day.today-outline {
+      outline: 2px solid #3d8156;
+      outline-offset: -1px;
+    }
+    .cal-legend {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64796b;
+    }
+    .cal-legend span::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .cal-legend .leg-full::before { background: #d4edda; }
+    .cal-legend .leg-half::before { background: #fff3cd; }
+    .cal-legend .leg-absent::before { background: #f0f0f0; }
+
+    /* 日历点击弹出登记 */
+    .cal-popup {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      border: 1px solid #dbe7d7;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(36,66,45,0.18);
+      padding: 10px;
+      z-index: 10;
+      white-space: nowrap;
+      display: none;
+    }
+    .cal-popup.show { display: block; }
+    .cal-popup button {
+      border: none;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      margin: 0 2px;
+    }
+    .cal-popup .btn-full { background: #d4edda; color: #1a5632; }
+    .cal-popup .btn-half { background: #fff3cd; color: #856404; }
+    .cal-popup .btn-clear { background: #f8d7da; color: #842029; }
+  </style>
 </head>
 <body>
   <div class="page-shell">
@@ -38,27 +210,8 @@
             <div class="summary-inline" id="worker-summary-inline"></div>
           </section>
 
-          <!-- 添加工人 -->
-          <section class="entry-card">
-            <h3>添加工人</h3>
-            <div class="field-grid">
-              <div>
-                <div class="label">姓名</div>
-                <input class="input-box" type="text" id="worker-name-input" placeholder="输入工人姓名">
-              </div>
-              <div>
-                <div class="label">日工资（元）</div>
-                <input class="input-box" type="number" id="worker-wage-input" placeholder="如 200" min="0" step="10">
-              </div>
-            </div>
-            <div class="actions">
-              <button class="btn primary" type="button" id="add-worker-btn">添加工人</button>
-            </div>
-          </section>
-
-          <!-- 工人列表 -->
           <h2 class="section-title">工人列表</h2>
-          <p class="section-subtitle">点击工人卡片展开，可登记出勤和修改信息。</p>
+          <p class="section-subtitle">点击工人卡片展开，查看月度出勤日历并登记。</p>
 
           <section id="worker-list"></section>
 
@@ -67,6 +220,31 @@
       </div>
     </div>
   </div>
+
+  <!-- 浮动添加按钮 -->
+  <button class="add-worker-fab" id="fab-add-worker">＋</button>
+
+  <!-- 添加工人弹窗 -->
+  <div class="modal-overlay" id="add-worker-modal">
+    <div class="modal-box">
+      <h3>添加工人</h3>
+      <div class="field-grid">
+        <div>
+          <div class="label">姓名</div>
+          <input class="input-box" type="text" id="modal-worker-name" placeholder="输入工人姓名">
+        </div>
+        <div>
+          <div class="label">日工资（元）</div>
+          <input class="input-box" type="number" id="modal-worker-wage" placeholder="如 200" min="0" step="10">
+        </div>
+      </div>
+      <div class="actions" style="margin-top: 12px;">
+        <button class="btn primary" type="button" id="modal-save-btn">确认添加</button>
+        <button class="btn" type="button" id="modal-cancel-btn">取消</button>
+      </div>
+    </div>
+  </div>
+
   <nav class="mobile-tabbar">
     <a href="dashboard.html"><strong>首页</strong>概览</a>
     <a href="sales.html"><strong>销售</strong>记账</a>
@@ -77,14 +255,143 @@
 
   <script src="data.js"></script>
   <script>
-    const workerNameInput = document.getElementById("worker-name-input");
-    const workerWageInput = document.getElementById("worker-wage-input");
-    const addWorkerBtn = document.getElementById("add-worker-btn");
     const workerListEl = document.getElementById("worker-list");
+    const fabBtn = document.getElementById("fab-add-worker");
+    const modal = document.getElementById("add-worker-modal");
+    const modalName = document.getElementById("modal-worker-name");
+    const modalWage = document.getElementById("modal-worker-wage");
+    const modalSave = document.getElementById("modal-save-btn");
+    const modalCancel = document.getElementById("modal-cancel-btn");
 
-    // 当前展开的工人卡片
     let expandedWorkerId = null;
+    let calendarMonths = {}; // { workerId: { year, month } }
+    let openPopupKey = null; // 当前打开的日历弹窗 key
 
+    // ========== 弹窗控制 ==========
+    fabBtn.addEventListener("click", () => {
+      modalName.value = "";
+      modalWage.value = "";
+      modal.classList.add("open");
+      modalName.focus();
+    });
+
+    modalCancel.addEventListener("click", () => modal.classList.remove("open"));
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.classList.remove("open");
+    });
+
+    modalSave.addEventListener("click", () => {
+      const name = modalName.value.trim();
+      const wage = modalWage.value;
+      if (!name) { alert("请输入工人姓名"); return; }
+      if (!wage || Number(wage) <= 0) { alert("请输入有效的日工资"); return; }
+      OrchidBookkeeping.saveWorker({ name, dailyWage: wage });
+      modal.classList.remove("open");
+      renderAll();
+    });
+
+    // ========== 日历工具 ==========
+    function getMonthDays(year, month) {
+      // month: 0-based
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startWeekDay = firstDay.getDay() || 7; // 1=周一
+      const totalDays = lastDay.getDate();
+      const cells = [];
+      // 填充前面的空格
+      for (let i = 1; i < startWeekDay; i++) cells.push(null);
+      for (let d = 1; d <= totalDays; d++) cells.push(d);
+      return cells;
+    }
+
+    function dateKeyOf(year, month, day) {
+      return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+
+    function renderCalendar(worker, records) {
+      const wid = worker.id;
+      if (!calendarMonths[wid]) {
+        const now = new Date();
+        calendarMonths[wid] = { year: now.getFullYear(), month: now.getMonth() };
+      }
+      const { year, month } = calendarMonths[wid];
+      const cells = getMonthDays(year, month);
+      const todayKey = OrchidBookkeeping.toDateKey(new Date());
+
+      // 构建出勤 map
+      const attendMap = {};
+      records.forEach((r) => {
+        attendMap[r.date] = r;
+      });
+
+      const monthLabel = `${year} 年 ${month + 1} 月`;
+      const weekHeaders = ["一", "二", "三", "四", "五", "六", "日"];
+
+      let html = `
+        <div class="month-nav">
+          <button type="button" data-cal-prev="${wid}">◀ 上月</button>
+          <span>${monthLabel}</span>
+          <button type="button" data-cal-next="${wid}">下月 ▶</button>
+        </div>
+        <div class="calendar-grid">
+          ${weekHeaders.map((h) => `<div class="cal-header">${h}</div>`).join("")}
+      `;
+
+      cells.forEach((day, idx) => {
+        if (day === null) {
+          html += '<div class="cal-day empty"></div>';
+          return;
+        }
+        const dk = dateKeyOf(year, month, day);
+        const record = attendMap[dk];
+        const isToday = dk === todayKey;
+        let cls = "cal-day";
+        let mark = "";
+        if (record) {
+          if (record.isHalfDay) {
+            cls += " half-day";
+            mark = '<div class="cal-mark">半天</div>';
+          } else {
+            cls += " full-day";
+            mark = '<div class="cal-mark">全天</div>';
+          }
+        }
+        if (isToday) cls += " today-outline";
+
+        const popupKey = `${wid}_${dk}`;
+        const showPopup = openPopupKey === popupKey;
+
+        html += `
+          <div class="${cls}" data-cal-day="${wid}" data-date="${dk}" style="position:relative;">
+            ${day}
+            ${mark}
+            <div class="cal-popup ${showPopup ? "show" : ""}" data-cal-popup="${popupKey}">
+              ${!record ? `
+                <button class="btn-full" data-cal-action="full" data-date="${dk}" data-wid="${wid}">全天</button>
+                <button class="btn-half" data-cal-action="half" data-date="${dk}" data-wid="${wid}">半天</button>
+              ` : `
+                <button class="btn-clear" data-cal-action="clear" data-date="${dk}" data-wid="${wid}">取消</button>
+                ${record.isHalfDay
+                  ? `<button class="btn-full" data-cal-action="full" data-date="${dk}" data-wid="${wid}">改全天</button>`
+                  : `<button class="btn-half" data-cal-action="half" data-date="${dk}" data-wid="${wid}">改半天</button>`
+                }
+              `}
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>
+        <div class="cal-legend">
+          <span class="leg-full">全天</span>
+          <span class="leg-half">半天</span>
+          <span class="leg-absent">未出勤</span>
+        </div>
+      `;
+      return html;
+    }
+
+    // ========== 主渲染 ==========
     function renderAll() {
       const summary = OrchidBookkeeping.getWorkerSummary();
       const today = OrchidBookkeeping.toDateKey(new Date());
@@ -117,15 +424,12 @@
 
     function renderWorkerList(summary) {
       if (!summary.length) {
-        workerListEl.innerHTML = '<div class="record-meta" style="padding:16px;">还没有添加工人，请先在上方添加。</div>';
+        workerListEl.innerHTML = '<div class="record-meta" style="padding:16px;">还没有添加工人，点右下角 ＋ 添加。</div>';
         return;
       }
 
       workerListEl.innerHTML = summary.map((worker) => {
         const isExpanded = expandedWorkerId === worker.id;
-        const recentRecords = worker.records
-          .sort((a, b) => b.date.localeCompare(a.date))
-          .slice(0, 10);
 
         return `
           <div class="panel" style="margin-top: 12px;" data-worker-panel="${worker.id}">
@@ -138,62 +442,30 @@
             </div>
 
             ${isExpanded ? `
-              <!-- 编辑工人信息 -->
-              <div class="field-grid" style="margin-top:12px;">
-                <div>
-                  <div class="label">姓名</div>
-                  <input class="input-box" type="text" value="${worker.name}" data-edit-name="${worker.id}">
+              <!-- 月度出勤日历 -->
+              <div style="margin-top:16px;border-top:1px solid #e2ece0;padding-top:12px;">
+                <h3>月度出勤</h3>
+                <div data-calendar="${worker.id}">
+                  ${renderCalendar(worker, worker.records)}
                 </div>
-                <div>
-                  <div class="label">日工资（元）</div>
-                  <input class="input-box" type="number" value="${worker.dailyWage}" min="0" step="10" data-edit-wage="${worker.id}">
-                </div>
-              </div>
-              <div class="actions">
-                <button class="btn primary" type="button" data-save-worker="${worker.id}">保存修改</button>
-                <button class="btn" type="button" data-delete-worker="${worker.id}" style="color:#c0392b;">删除工人</button>
               </div>
 
-              <!-- 登记出勤 -->
+              <!-- 编辑工人信息 -->
               <div style="margin-top:16px;border-top:1px solid #e2ece0;padding-top:12px;">
-                <h3>登记出勤</h3>
+                <h3>工人信息</h3>
                 <div class="field-grid">
                   <div>
-                    <div class="label">日期</div>
-                    <input class="input-box" type="date" value="${today}" data-attend-date="${worker.id}">
+                    <div class="label">姓名</div>
+                    <input class="input-box" type="text" value="${worker.name}" data-edit-name="${worker.id}">
                   </div>
                   <div>
-                    <div class="label">出勤类型</div>
-                    <div class="chip-group" data-attend-chips="${worker.id}">
-                      <div class="chip active" data-attend-type="full">全天</div>
-                      <div class="chip" data-attend-type="half">半天</div>
-                    </div>
+                    <div class="label">日工资（元）</div>
+                    <input class="input-box" type="number" value="${worker.dailyWage}" min="0" step="10" data-edit-wage="${worker.id}">
                   </div>
                 </div>
-                <div>
-                  <div class="label">备注（可选）</div>
-                  <input class="input-box" type="text" placeholder="如：浇水、搬运" data-attend-note="${worker.id}">
-                </div>
                 <div class="actions">
-                  <button class="btn primary" type="button" data-add-attend="${worker.id}">记录出勤</button>
-                </div>
-              </div>
-
-              <!-- 出勤记录 -->
-              <div style="margin-top:12px;">
-                <h3>出勤记录</h3>
-                <div class="timeline">
-                  ${recentRecords.length ? recentRecords.map((r) => `
-                    <div class="timeline-item">
-                      <div class="timeline-head">
-                        <div class="timeline-title">${r.date} ${r.isHalfDay ? "半天" : "全天"}</div>
-                        <div class="timeline-amount">${r.isHalfDay ? "0.5" : "1"} 天</div>
-                      </div>
-                      <div class="timeline-meta">${r.note || "无备注"}
-                        <button class="btn" type="button" data-delete-attend="${r.id}" style="float:right;padding:2px 8px;font-size:11px;">删除</button>
-                      </div>
-                    </div>
-                  `).join("") : '<div class="record-meta">暂无出勤记录。</div>'}
+                  <button class="btn primary" type="button" data-save-worker="${worker.id}">保存修改</button>
+                  <button class="btn" type="button" data-delete-worker="${worker.id}" style="color:#c0392b;">删除工人</button>
                 </div>
               </div>
             ` : ""}
@@ -201,21 +473,89 @@
         `;
       }).join("");
 
-      // 今天日期
-      const today = OrchidBookkeeping.toDateKey(new Date());
+      bindWorkerEvents(summary);
+    }
 
-      // 绑定展开/收纳
+    function bindWorkerEvents(summary) {
+      // 展开/收纳
       workerListEl.querySelectorAll("[data-worker-toggle]").forEach((el) => {
-        el.addEventListener("click", () => {
+        el.addEventListener("click", (e) => {
+          // 避免日历弹窗内的点击触发收起
+          if (e.target.closest("[data-cal-popup]")) return;
           const wid = el.dataset.workerToggle;
           expandedWorkerId = expandedWorkerId === wid ? null : wid;
+          openPopupKey = null;
           renderAll();
         });
       });
 
-      // 绑定保存工人
+      // 日历翻页
+      workerListEl.querySelectorAll("[data-cal-prev]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wid = btn.dataset.calPrev;
+          const m = calendarMonths[wid];
+          m.month--;
+          if (m.month < 0) { m.month = 11; m.year--; }
+          openPopupKey = null;
+          renderAll();
+        });
+      });
+      workerListEl.querySelectorAll("[data-cal-next]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wid = btn.dataset.calNext;
+          const m = calendarMonths[wid];
+          m.month++;
+          if (m.month > 11) { m.month = 0; m.year++; }
+          openPopupKey = null;
+          renderAll();
+        });
+      });
+
+      // 日历日期点击 - 打开弹窗
+      workerListEl.querySelectorAll("[data-cal-day]").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wid = el.dataset.calDay;
+          const dk = el.dataset.date;
+          const popupKey = `${wid}_${dk}`;
+          openPopupKey = openPopupKey === popupKey ? null : popupKey;
+          renderAll();
+        });
+      });
+
+      // 日历弹窗操作
+      workerListEl.querySelectorAll("[data-cal-action]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wid = btn.dataset.wid;
+          const dk = btn.dataset.date;
+          const action = btn.dataset.calAction;
+
+          if (action === "full") {
+            // 检查是否已有记录，有则先删
+            const existing = OrchidBookkeeping.getWorkerRecords(wid).find((r) => r.date === dk);
+            if (existing) OrchidBookkeeping.deleteWorkerRecord(existing.id);
+            OrchidBookkeeping.saveWorkerRecord({ workerId: wid, date: dk, isHalfDay: false });
+          } else if (action === "half") {
+            const existing = OrchidBookkeeping.getWorkerRecords(wid).find((r) => r.date === dk);
+            if (existing) OrchidBookkeeping.deleteWorkerRecord(existing.id);
+            OrchidBookkeeping.saveWorkerRecord({ workerId: wid, date: dk, isHalfDay: true });
+          } else if (action === "clear") {
+            const existing = OrchidBookkeeping.getWorkerRecords(wid).find((r) => r.date === dk);
+            if (existing) OrchidBookkeeping.deleteWorkerRecord(existing.id);
+          }
+
+          openPopupKey = null;
+          renderAll();
+        });
+      });
+
+      // 保存工人
       workerListEl.querySelectorAll("[data-save-worker]").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const wid = btn.dataset.saveWorker;
           const name = workerListEl.querySelector(`[data-edit-name="${wid}"]`).value.trim();
           const wage = workerListEl.querySelector(`[data-edit-wage="${wid}"]`).value;
@@ -225,9 +565,10 @@
         });
       });
 
-      // 绑定删除工人
+      // 删除工人
       workerListEl.querySelectorAll("[data-delete-worker]").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const wid = btn.dataset.deleteWorker;
           if (confirm("确定删除该工人？所有出勤记录也会一并删除。")) {
             OrchidBookkeeping.deleteWorker(wid);
@@ -236,53 +577,14 @@
           }
         });
       });
-
-      // 出勤类型切换
-      workerListEl.querySelectorAll("[data-attend-chips]").forEach((group) => {
-        const wid = group.dataset.attendChips;
-        group.querySelectorAll("[data-attend-type]").forEach((chip) => {
-          chip.addEventListener("click", () => {
-            group.querySelectorAll("[data-attend-type]").forEach((c) => c.classList.remove("active"));
-            chip.classList.add("active");
-          });
-        });
-      });
-
-      // 绑定出勤记录
-      workerListEl.querySelectorAll("[data-add-attend]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const wid = btn.dataset.addAttend;
-          const date = workerListEl.querySelector(`[data-attend-date="${wid}"]`).value;
-          const chipGroup = workerListEl.querySelector(`[data-attend-chips="${wid}"]`);
-          const isHalfDay = chipGroup.querySelector("[data-attend-type].active")?.dataset.attendType === "half";
-          const note = workerListEl.querySelector(`[data-attend-note="${wid}"]`).value.trim();
-          if (!date) { alert("请选择日期"); return; }
-          OrchidBookkeeping.saveWorkerRecord({ workerId: wid, date, isHalfDay, note });
-          renderAll();
-        });
-      });
-
-      // 绑定删除出勤
-      workerListEl.querySelectorAll("[data-delete-attend]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          if (confirm("确定删除这条出勤记录？")) {
-            OrchidBookkeeping.deleteWorkerRecord(btn.dataset.deleteAttend);
-            renderAll();
-          }
-        });
-      });
     }
 
-    // 添加工人
-    addWorkerBtn.addEventListener("click", () => {
-      const name = workerNameInput.value.trim();
-      const wage = workerWageInput.value;
-      if (!name) { alert("请输入工人姓名"); return; }
-      if (!wage || Number(wage) <= 0) { alert("请输入有效的日工资"); return; }
-      OrchidBookkeeping.saveWorker({ name, dailyWage: wage });
-      workerNameInput.value = "";
-      workerWageInput.value = "";
-      renderAll();
+    // 点击空白处关闭日历弹窗
+    document.addEventListener("click", () => {
+      if (openPopupKey) {
+        openPopupKey = null;
+        renderAll();
+      }
     });
 
     renderAll();
