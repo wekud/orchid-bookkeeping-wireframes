@@ -9,7 +9,9 @@ const OrchidBookkeeping = (() => {
   };
   const DEFAULT_STORE = {
     salesRecords: [],
-    expenseRecords: []
+    expenseRecords: [],
+    workers: [],
+    workerRecords: []
   };
 
   function createId(prefix) {
@@ -27,7 +29,9 @@ const OrchidBookkeeping = (() => {
       const parsed = JSON.parse(raw);
       return {
         salesRecords: Array.isArray(parsed.salesRecords) ? parsed.salesRecords : [],
-        expenseRecords: Array.isArray(parsed.expenseRecords) ? parsed.expenseRecords : []
+        expenseRecords: Array.isArray(parsed.expenseRecords) ? parsed.expenseRecords : [],
+        workers: Array.isArray(parsed.workers) ? parsed.workers : [],
+        workerRecords: Array.isArray(parsed.workerRecords) ? parsed.workerRecords : []
       };
     } catch (error) {
       return clone(DEFAULT_STORE);
@@ -274,6 +278,86 @@ const OrchidBookkeeping = (() => {
     }));
   }
 
+  // ========== 工人管理 ==========
+
+  function getWorkers() {
+    return readStore().workers;
+  }
+
+  function saveWorker(payload) {
+    const store = readStore();
+    if (payload.id) {
+      // 更新
+      const index = store.workers.findIndex((w) => w.id === payload.id);
+      if (index !== -1) {
+        store.workers[index].name = payload.name || store.workers[index].name;
+        store.workers[index].dailyWage = normalizeNumber(payload.dailyWage);
+      }
+    } else {
+      // 新增
+      store.workers.push({
+        id: createId("worker"),
+        name: payload.name || "",
+        dailyWage: normalizeNumber(payload.dailyWage),
+        createdAt: new Date().toISOString()
+      });
+    }
+    writeStore(store);
+  }
+
+  function deleteWorker(id) {
+    const store = readStore();
+    store.workers = store.workers.filter((w) => w.id !== id);
+    store.workerRecords = store.workerRecords.filter((r) => r.workerId !== id);
+    writeStore(store);
+  }
+
+  function getWorkerRecords(workerId) {
+    const records = readStore().workerRecords;
+    if (workerId) return records.filter((r) => r.workerId === workerId);
+    return records;
+  }
+
+  function saveWorkerRecord(payload) {
+    const store = readStore();
+    const record = {
+      id: createId("wr"),
+      workerId: payload.workerId,
+      date: payload.date || toDateKey(new Date()),
+      isHalfDay: !!payload.isHalfDay,
+      note: payload.note || "",
+      createdAt: new Date().toISOString()
+    };
+    store.workerRecords.unshift(record);
+    writeStore(store);
+    return record;
+  }
+
+  function deleteWorkerRecord(id) {
+    const store = readStore();
+    store.workerRecords = store.workerRecords.filter((r) => r.id !== id);
+    writeStore(store);
+  }
+
+  function getWorkerSummary() {
+    const workers = getWorkers();
+    const records = getWorkerRecords();
+    return workers.map((worker) => {
+      const workerRecords = records.filter((r) => r.workerId === worker.id);
+      const fullDays = workerRecords.filter((r) => !r.isHalfDay).length;
+      const halfDays = workerRecords.filter((r) => r.isHalfDay).length;
+      const totalDays = fullDays + halfDays * 0.5;
+      return {
+        ...worker,
+        fullDays,
+        halfDays,
+        totalDays,
+        totalWage: totalDays * worker.dailyWage,
+        records: workerRecords
+      };
+    });
+  }
+
   function exportStore() {
     return JSON.stringify(readStore(), null, 2);
   }
@@ -282,7 +366,9 @@ const OrchidBookkeeping = (() => {
     const parsed = JSON.parse(text);
     const nextStore = {
       salesRecords: Array.isArray(parsed.salesRecords) ? parsed.salesRecords : [],
-      expenseRecords: Array.isArray(parsed.expenseRecords) ? parsed.expenseRecords : []
+      expenseRecords: Array.isArray(parsed.expenseRecords) ? parsed.expenseRecords : [],
+      workers: Array.isArray(parsed.workers) ? parsed.workers : [],
+      workerRecords: Array.isArray(parsed.workerRecords) ? parsed.workerRecords : []
     };
     writeStore(nextStore);
     return nextStore;
@@ -354,6 +440,13 @@ const OrchidBookkeeping = (() => {
     getSalesGradeBreakdown,
     exportStore,
     importStore,
-    seedDemoData
+    seedDemoData,
+    getWorkers,
+    saveWorker,
+    deleteWorker,
+    getWorkerRecords,
+    saveWorkerRecord,
+    deleteWorkerRecord,
+    getWorkerSummary
   };
 })();

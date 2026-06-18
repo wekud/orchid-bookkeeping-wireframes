@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>兰花记账软件 - 工人管理</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="frame">
+      <div class="topbar">
+        <div class="mobile-statusbar">
+          <span>9:41</span>
+          <div class="status-icons">
+            <span>5G</span>
+            <span>88%</span>
+          </div>
+        </div>
+        <div class="brand">
+          <div class="brand-mark">兰</div>
+          <div>
+            <h1>兰花记账软件</h1>
+            <p>工人管理</p>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <p class="meta-line" id="worker-date-label"></p>
+          <p class="meta-line" id="worker-count-label"></p>
+        </div>
+      </div>
+      <div class="app-body">
+        <main class="content">
+          <section class="hero-card">
+            <div class="eyebrow">工人开支概览</div>
+            <div class="kpi-value" id="worker-total-wage">¥ 0</div>
+            <div class="kpi-label" id="worker-total-detail">共 0 名工人，累计 0 天。</div>
+            <div class="summary-inline" id="worker-summary-inline"></div>
+          </section>
+
+          <!-- 添加工人 -->
+          <section class="entry-card">
+            <h3>添加工人</h3>
+            <div class="field-grid">
+              <div>
+                <div class="label">姓名</div>
+                <input class="input-box" type="text" id="worker-name-input" placeholder="输入工人姓名">
+              </div>
+              <div>
+                <div class="label">日工资（元）</div>
+                <input class="input-box" type="number" id="worker-wage-input" placeholder="如 200" min="0" step="10">
+              </div>
+            </div>
+            <div class="actions">
+              <button class="btn primary" type="button" id="add-worker-btn">添加工人</button>
+            </div>
+          </section>
+
+          <!-- 工人列表 -->
+          <h2 class="section-title">工人列表</h2>
+          <p class="section-subtitle">点击工人卡片展开，可登记出勤和修改信息。</p>
+
+          <section id="worker-list"></section>
+
+          <div id="scroll-sentinel" style="height:1px;"></div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <nav class="mobile-tabbar">
+    <a href="dashboard.html"><strong>首页</strong>概览</a>
+    <a href="sales.html"><strong>销售</strong>记账</a>
+    <a href="expenses.html"><strong>支出</strong>登记</a>
+    <a class="active" href="workers.html"><strong>工人</strong>管理</a>
+    <a href="analytics.html"><strong>统计</strong>分析</a>
+  </nav>
+
+  <script src="data.js"></script>
+  <script>
+    const workerNameInput = document.getElementById("worker-name-input");
+    const workerWageInput = document.getElementById("worker-wage-input");
+    const addWorkerBtn = document.getElementById("add-worker-btn");
+    const workerListEl = document.getElementById("worker-list");
+
+    // 当前展开的工人卡片
+    let expandedWorkerId = null;
+
+    function renderAll() {
+      const summary = OrchidBookkeeping.getWorkerSummary();
+      const today = OrchidBookkeeping.toDateKey(new Date());
+
+      document.getElementById("worker-date-label").textContent = `${today} 工人管理`;
+      document.getElementById("worker-count-label").textContent = `共 ${summary.length} 名工人`;
+
+      const totalWage = summary.reduce((sum, w) => sum + w.totalWage, 0);
+      const totalDays = summary.reduce((sum, w) => sum + w.totalDays, 0);
+      document.getElementById("worker-total-wage").textContent = OrchidBookkeeping.formatCurrencyPrecise(totalWage);
+      document.getElementById("worker-total-detail").textContent = `共 ${summary.length} 名工人，累计 ${totalDays} 天。`;
+
+      document.getElementById("worker-summary-inline").innerHTML = `
+        <div class="summary-chip">
+          <strong>${summary.length} 人</strong>
+          <span>在册工人</span>
+        </div>
+        <div class="summary-chip">
+          <strong>${totalDays} 天</strong>
+          <span>累计出勤</span>
+        </div>
+        <div class="summary-chip">
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(totalWage)}</strong>
+          <span>累计工资</span>
+        </div>
+      `;
+
+      renderWorkerList(summary);
+    }
+
+    function renderWorkerList(summary) {
+      if (!summary.length) {
+        workerListEl.innerHTML = '<div class="record-meta" style="padding:16px;">还没有添加工人，请先在上方添加。</div>';
+        return;
+      }
+
+      workerListEl.innerHTML = summary.map((worker) => {
+        const isExpanded = expandedWorkerId === worker.id;
+        const recentRecords = worker.records
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .slice(0, 10);
+
+        return `
+          <div class="panel" style="margin-top: 12px;" data-worker-panel="${worker.id}">
+            <div class="record-head" style="cursor:pointer;" data-worker-toggle="${worker.id}">
+              <div class="record-title">${worker.name}</div>
+              <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(worker.dailyWage)}/天</div>
+            </div>
+            <div class="record-meta">
+              全天 ${worker.fullDays} 次 · 半天 ${worker.halfDays} 次 · 合计 ${worker.totalDays} 天 · 工资 ${OrchidBookkeeping.formatCurrencyPrecise(worker.totalWage)}
+            </div>
+
+            ${isExpanded ? `
+              <!-- 编辑工人信息 -->
+              <div class="field-grid" style="margin-top:12px;">
+                <div>
+                  <div class="label">姓名</div>
+                  <input class="input-box" type="text" value="${worker.name}" data-edit-name="${worker.id}">
+                </div>
+                <div>
+                  <div class="label">日工资（元）</div>
+                  <input class="input-box" type="number" value="${worker.dailyWage}" min="0" step="10" data-edit-wage="${worker.id}">
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="button" data-save-worker="${worker.id}">保存修改</button>
+                <button class="btn" type="button" data-delete-worker="${worker.id}" style="color:#c0392b;">删除工人</button>
+              </div>
+
+              <!-- 登记出勤 -->
+              <div style="margin-top:16px;border-top:1px solid #e2ece0;padding-top:12px;">
+                <h3>登记出勤</h3>
+                <div class="field-grid">
+                  <div>
+                    <div class="label">日期</div>
+                    <input class="input-box" type="date" value="${today}" data-attend-date="${worker.id}">
+                  </div>
+                  <div>
+                    <div class="label">出勤类型</div>
+                    <div class="chip-group" data-attend-chips="${worker.id}">
+                      <div class="chip active" data-attend-type="full">全天</div>
+                      <div class="chip" data-attend-type="half">半天</div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="label">备注（可选）</div>
+                  <input class="input-box" type="text" placeholder="如：浇水、搬运" data-attend-note="${worker.id}">
+                </div>
+                <div class="actions">
+                  <button class="btn primary" type="button" data-add-attend="${worker.id}">记录出勤</button>
+                </div>
+              </div>
+
+              <!-- 出勤记录 -->
+              <div style="margin-top:12px;">
+                <h3>出勤记录</h3>
+                <div class="timeline">
+                  ${recentRecords.length ? recentRecords.map((r) => `
+                    <div class="timeline-item">
+                      <div class="timeline-head">
+                        <div class="timeline-title">${r.date} ${r.isHalfDay ? "半天" : "全天"}</div>
+                        <div class="timeline-amount">${r.isHalfDay ? "0.5" : "1"} 天</div>
+                      </div>
+                      <div class="timeline-meta">${r.note || "无备注"}
+                        <button class="btn" type="button" data-delete-attend="${r.id}" style="float:right;padding:2px 8px;font-size:11px;">删除</button>
+                      </div>
+                    </div>
+                  `).join("") : '<div class="record-meta">暂无出勤记录。</div>'}
+                </div>
+              </div>
+            ` : ""}
+          </div>
+        `;
+      }).join("");
+
+      // 今天日期
+      const today = OrchidBookkeeping.toDateKey(new Date());
+
+      // 绑定展开/收纳
+      workerListEl.querySelectorAll("[data-worker-toggle]").forEach((el) => {
+        el.addEventListener("click", () => {
+          const wid = el.dataset.workerToggle;
+          expandedWorkerId = expandedWorkerId === wid ? null : wid;
+          renderAll();
+        });
+      });
+
+      // 绑定保存工人
+      workerListEl.querySelectorAll("[data-save-worker]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const wid = btn.dataset.saveWorker;
+          const name = workerListEl.querySelector(`[data-edit-name="${wid}"]`).value.trim();
+          const wage = workerListEl.querySelector(`[data-edit-wage="${wid}"]`).value;
+          if (!name) { alert("请输入姓名"); return; }
+          OrchidBookkeeping.saveWorker({ id: wid, name, dailyWage: wage });
+          renderAll();
+        });
+      });
+
+      // 绑定删除工人
+      workerListEl.querySelectorAll("[data-delete-worker]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const wid = btn.dataset.deleteWorker;
+          if (confirm("确定删除该工人？所有出勤记录也会一并删除。")) {
+            OrchidBookkeeping.deleteWorker(wid);
+            expandedWorkerId = null;
+            renderAll();
+          }
+        });
+      });
+
+      // 出勤类型切换
+      workerListEl.querySelectorAll("[data-attend-chips]").forEach((group) => {
+        const wid = group.dataset.attendChips;
+        group.querySelectorAll("[data-attend-type]").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            group.querySelectorAll("[data-attend-type]").forEach((c) => c.classList.remove("active"));
+            chip.classList.add("active");
+          });
+        });
+      });
+
+      // 绑定出勤记录
+      workerListEl.querySelectorAll("[data-add-attend]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const wid = btn.dataset.addAttend;
+          const date = workerListEl.querySelector(`[data-attend-date="${wid}"]`).value;
+          const chipGroup = workerListEl.querySelector(`[data-attend-chips="${wid}"]`);
+          const isHalfDay = chipGroup.querySelector("[data-attend-type].active")?.dataset.attendType === "half";
+          const note = workerListEl.querySelector(`[data-attend-note="${wid}"]`).value.trim();
+          if (!date) { alert("请选择日期"); return; }
+          OrchidBookkeeping.saveWorkerRecord({ workerId: wid, date, isHalfDay, note });
+          renderAll();
+        });
+      });
+
+      // 绑定删除出勤
+      workerListEl.querySelectorAll("[data-delete-attend]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (confirm("确定删除这条出勤记录？")) {
+            OrchidBookkeeping.deleteWorkerRecord(btn.dataset.deleteAttend);
+            renderAll();
+          }
+        });
+      });
+    }
+
+    // 添加工人
+    addWorkerBtn.addEventListener("click", () => {
+      const name = workerNameInput.value.trim();
+      const wage = workerWageInput.value;
+      if (!name) { alert("请输入工人姓名"); return; }
+      if (!wage || Number(wage) <= 0) { alert("请输入有效的日工资"); return; }
+      OrchidBookkeeping.saveWorker({ name, dailyWage: wage });
+      workerNameInput.value = "";
+      workerWageInput.value = "";
+      renderAll();
+    });
+
+    renderAll();
+
+    // 滚动到底才显示导航栏
+    const tabbar = document.querySelector(".mobile-tabbar");
+    const sentinel = document.getElementById("scroll-sentinel");
+    const scrollObserver = new IntersectionObserver((entries) => {
+      tabbar.classList.toggle("visible", entries[0].isIntersecting);
+    }, { threshold: 0 });
+    scrollObserver.observe(sentinel);
+  </script>
+</body>
+</html>
