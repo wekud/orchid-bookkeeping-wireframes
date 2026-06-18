@@ -213,6 +213,8 @@
       `).join("");
     }
 
+    let expandedSaleId = null;
+
     function renderHistory() {
       const records = OrchidBookkeeping.getSalesRecords();
       if (!records.length) {
@@ -220,24 +222,74 @@
         return;
       }
 
-      salesHistoryList.innerHTML = records.map((record) => `
-        <div class="record-card">
-          <div class="record-head">
-            <div class="record-title">${record.customer || "未命名客户"} · ${record.paymentStatus || "未标记"}</div>
-            <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.totalAmount)}</div>
+      salesHistoryList.innerHTML = records.map((record) => {
+        const isExpanded = expandedSaleId === record.id;
+        const hasDetails = record.gradeItems.some((g) => g.quantity > 0 || g.note);
+
+        return `
+          <div class="record-card">
+            <div class="record-head" style="cursor:pointer;" data-sale-toggle="${record.id}">
+              <div class="record-title">${record.customer || "未命名客户"} · ${record.paymentStatus || "未标记"}</div>
+              <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.totalAmount)}</div>
+            </div>
+            <div class="record-meta">${record.date} · ${record.totalQuantity} 株 · ${record.saleMethod}</div>
+            <div class="record-meta">${record.gradeItems.filter((g) => g.quantity > 0).map((item) => `${item.gradeLabel} ${item.quantity}株`).join(" / ") || "无销售"}</div>
+
+            ${isExpanded ? `
+              <div style="margin-top:10px;border-top:1px solid #e2ece0;padding-top:10px;">
+                <table style="width:100%;font-size:13px;border-collapse:collapse;">
+                  <tr style="color:#64796b;font-size:11px;">
+                    <td style="padding:4px 0;">品类</td>
+                    <td style="text-align:right;">单价</td>
+                    <td style="text-align:right;">数量</td>
+                    <td style="text-align:right;">金额</td>
+                  </tr>
+                  ${record.gradeItems.filter((g) => g.quantity > 0).map((g) => `
+                    <tr>
+                      <td style="padding:4px 0;font-weight:600;">${g.gradeLabel}</td>
+                      <td style="text-align:right;">${g.price}</td>
+                      <td style="text-align:right;">${g.quantity} 株</td>
+                      <td style="text-align:right;font-weight:600;">${OrchidBookkeeping.formatCurrencyPrecise(g.amount)}</td>
+                    </tr>
+                    ${g.note ? `<tr><td colspan="4" style="padding:0 0 4px;color:#64796b;font-size:12px;">📝 ${g.note}</td></tr>` : ""}
+                  `).join("")}
+                </table>
+              </div>
+            ` : ""}
+
+            <div class="actions">
+              ${hasDetails ? `<button class="btn" type="button" data-sale-toggle-btn="${record.id}">${isExpanded ? "收起" : "详情"}</button>` : ""}
+              <button class="btn" type="button" data-sale-delete="${record.id}">删除</button>
+            </div>
           </div>
-          <div class="record-meta">${record.date} · ${record.totalQuantity} 株 · ${record.saleMethod}</div>
-          <div class="record-meta">${record.gradeItems.map((item) => `${item.gradeLabel}${item.quantity ? ` ${item.quantity}株` : ""}`).join(" / ")}</div>
-          <div class="actions">
-            <button class="btn" type="button" data-sale-delete="${record.id}">删除</button>
-          </div>
-        </div>
-      `).join("");
+        `;
+      }).join("");
+
+      // 展开/收起
+      salesHistoryList.querySelectorAll("[data-sale-toggle]").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          if (e.target.closest("[data-sale-delete]") || e.target.closest("[data-sale-toggle-btn]")) return;
+          const id = el.dataset.saleToggle;
+          expandedSaleId = expandedSaleId === id ? null : id;
+          renderHistory();
+        });
+      });
+
+      salesHistoryList.querySelectorAll("[data-sale-toggle-btn]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.saleToggleBtn;
+          expandedSaleId = expandedSaleId === id ? null : id;
+          renderHistory();
+        });
+      });
 
       salesHistoryList.querySelectorAll("[data-sale-delete]").forEach((button) => {
         button.addEventListener("click", () => {
-          OrchidBookkeeping.deleteSaleRecord(button.dataset.saleDelete);
-          renderHistory();
+          if (confirm("确定删除这条销售记录？")) {
+            OrchidBookkeeping.deleteSaleRecord(button.dataset.saleDelete);
+            expandedSaleId = null;
+            renderHistory();
+          }
         });
       });
     }
