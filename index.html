@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>兰花记账软件入口</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="frame">
+      <div class="topbar">
+        <div class="mobile-statusbar">
+          <span>9:41</span>
+          <div class="status-icons">
+            <span>5G</span>
+            <span>88%</span>
+          </div>
+        </div>
+        <div class="brand">
+          <div class="brand-mark">兰</div>
+          <div>
+            <h1>兰花记账软件</h1>
+            <p>本地静态版入口</p>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <p class="meta-line">无需后端，数据保存在浏览器本地</p>
+          <p class="meta-line" id="index-meta-label">可导出和导入备份</p>
+        </div>
+      </div>
+      <div class="app-body">
+        <main class="content">
+          <section class="hero-card">
+            <div class="eyebrow">软件入口</div>
+            <div class="kpi-value">本地可用</div>
+            <div class="kpi-label">销售、支出、首页汇总、统计分析都使用本地数据。</div>
+            <div class="summary-inline" id="index-summary-inline"></div>
+          </section>
+
+          <h2 class="section-title">功能入口</h2>
+          <p class="section-subtitle">直接进入具体页面操作，也可以先做数据备份。</p>
+
+          <section class="quick-grid">
+            <a class="quick-action primary" href="dashboard.html">
+              <div class="action-title">首页</div>
+              <div class="action-desc">查看今日收支、最近记录和快捷记账入口</div>
+            </a>
+            <a class="quick-action" href="sales.html">
+              <div class="action-title">销售记账</div>
+              <div class="action-desc">录入四个等级的单价、数量和备注</div>
+            </a>
+            <a class="quick-action" href="expenses.html">
+              <div class="action-title">支出登记</div>
+              <div class="action-desc">按日期、类型、金额快速保存一笔支出</div>
+            </a>
+            <a class="quick-action" href="analytics.html">
+              <div class="action-title">统计分析</div>
+              <div class="action-desc">查看日周月利润、分类占比和明细</div>
+            </a>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>导出 / 导入</h3>
+            <div class="actions">
+              <button class="btn primary" type="button" id="index-export-button">导出备份</button>
+              <label class="btn" for="index-import-input">导入备份</label>
+            </div>
+            <input class="input-box" type="file" id="index-import-input" accept="application/json" style="margin-top: 12px;">
+            <div class="record-meta" style="margin-top: 10px;">导出为 JSON 文件，导入后会覆盖当前本地数据。</div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script>
+    OrchidBookkeeping.seedDemoData();
+
+    function downloadBackup() {
+      const blob = new Blob([OrchidBookkeeping.exportStore()], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `orchid-bookkeeping-backup-${OrchidBookkeeping.toDateKey(new Date())}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderIndexSummary() {
+      const todaySummary = OrchidBookkeeping.getTodaySummary();
+      const monthSummary = OrchidBookkeeping.getRangeSummary("month");
+      document.getElementById("index-summary-inline").innerHTML = `
+        <div class="summary-chip">
+          <strong>${todaySummary.salesCount + todaySummary.expenseCount}</strong>
+          <span>今日记账笔数</span>
+        </div>
+        <div class="summary-chip">
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(todaySummary.profitTotal)}</strong>
+          <span>今日利润</span>
+        </div>
+        <div class="summary-chip">
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(monthSummary.salesTotal)}</strong>
+          <span>本月销售</span>
+        </div>
+        <div class="summary-chip">
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(monthSummary.expenseTotal)}</strong>
+          <span>本月支出</span>
+        </div>
+      `;
+    }
+
+    document.getElementById("index-export-button").addEventListener("click", downloadBackup);
+    document.getElementById("index-import-input").addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      OrchidBookkeeping.importStore(text);
+      renderIndexSummary();
+      alert("导入成功，入口页汇总已刷新。");
+    });
+
+    renderIndexSummary();
+  </script>
+</body>
+</html>

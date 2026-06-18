@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>兰花记账软件 - 销售记账</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="frame">
+      <div class="topbar">
+        <div class="mobile-statusbar">
+          <span>9:41</span>
+          <div class="status-icons">
+            <span>5G</span>
+            <span>88%</span>
+          </div>
+        </div>
+        <div class="brand">
+          <div class="brand-mark">兰</div>
+          <div>
+            <h1>兰花记账软件</h1>
+            <p>销售记账</p>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <p class="meta-line">四等级卡片录入</p>
+          <p class="meta-line" id="sales-topbar-meta">本次订单：未保存</p>
+        </div>
+      </div>
+      <div class="app-body">
+        <main class="content">
+          <section class="mobile-shortcuts" id="sales-shortcuts">
+            <div class="mobile-shortcut"><strong>0级</strong>等级</div>
+            <div class="mobile-shortcut"><strong>0株</strong>数量</div>
+            <div class="mobile-shortcut"><strong>¥0</strong>合计</div>
+            <div class="mobile-shortcut"><strong>未收</strong>状态</div>
+          </section>
+
+          <h2 class="section-title">按等级录入销售</h2>
+          <p class="section-subtitle">输入后自动计算金额，可保存、查看历史并删除记录。</p>
+
+          <form id="sales-form">
+            <section class="entry-card">
+              <h3>基础信息</h3>
+              <div class="field-grid">
+                <div>
+                  <div class="label">记账日期</div>
+                  <input class="input-box" type="date" id="sale-date" required>
+                </div>
+                <div>
+                  <div class="label">客户名称</div>
+                  <input class="input-box" type="text" id="sale-customer" placeholder="例如：老周花卉店" required>
+                </div>
+                <div>
+                  <div class="label">销售方式</div>
+                  <select class="select-box" id="sale-method">
+                    <option>批发销售</option>
+                    <option>零售销售</option>
+                    <option>线上预订</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="label">结算状态</div>
+                  <select class="select-box" id="sale-payment-status">
+                    <option>已收款</option>
+                    <option>未收款</option>
+                    <option>部分收款</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <section class="grade-list" style="margin-top: 12px;" id="sales-grade-list"></section>
+
+            <section class="panel" style="margin-top: 12px;">
+              <h3>录入后结果</h3>
+              <div class="bar-chart" id="sales-breakdown"></div>
+              <div class="actions">
+                <button class="btn primary" type="submit">保存销售</button>
+                <button class="btn" type="button" id="sales-continue-button">继续新增</button>
+                <button class="btn" type="button" id="sales-reset-button">清空</button>
+              </div>
+            </section>
+          </form>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>历史销售记录</h3>
+            <div class="list" id="sales-history-list"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="floating-total">
+    <div>
+      <small>本次销售合计</small>
+      <strong id="floating-sales-total">¥ 0</strong>
+    </div>
+    <div class="pill" id="floating-sales-quantity">0 株</div>
+  </div>
+  <nav class="mobile-tabbar">
+    <a href="dashboard.html"><strong>首页</strong>概览</a>
+    <a class="active" href="sales.html"><strong>销售</strong>记账</a>
+    <a href="expenses.html"><strong>支出</strong>登记</a>
+    <a href="analytics.html"><strong>统计</strong>分析</a>
+  </nav>
+
+  <script src="data.js"></script>
+  <script>
+    const gradeConfig = [
+      { key: "special", label: "特级", badge: "精品主打" },
+      { key: "a", label: "A级", badge: "稳定走量" },
+      { key: "b", label: "B级", badge: "搭配出售" },
+      { key: "c", label: "C级", badge: "清仓优惠" }
+    ];
+
+    OrchidBookkeeping.seedDemoData();
+
+    const salesForm = document.getElementById("sales-form");
+    const salesGradeList = document.getElementById("sales-grade-list");
+    const salesHistoryList = document.getElementById("sales-history-list");
+    const floatingSalesTotal = document.getElementById("floating-sales-total");
+    const floatingSalesQuantity = document.getElementById("floating-sales-quantity");
+    const salesBreakdown = document.getElementById("sales-breakdown");
+    const salesShortcuts = document.getElementById("sales-shortcuts");
+    const salesTopbarMeta = document.getElementById("sales-topbar-meta");
+    const continueButton = document.getElementById("sales-continue-button");
+    const resetButton = document.getElementById("sales-reset-button");
+
+    document.getElementById("sale-date").value = OrchidBookkeeping.toDateKey(new Date());
+
+    salesGradeList.innerHTML = gradeConfig.map((item) => `
+      <div class="grade-card" data-grade="${item.key}">
+        <div class="grade-top">
+          <div class="grade-name">${item.label}</div>
+          <div class="grade-badge">${item.badge}</div>
+        </div>
+        <div class="field-grid">
+          <div>
+            <div class="label">单价</div>
+            <input class="input-box grade-price" type="number" min="0" step="0.01" data-grade="${item.key}" placeholder="0">
+          </div>
+          <div>
+            <div class="label">数量</div>
+            <input class="input-box grade-quantity" type="number" min="0" step="1" data-grade="${item.key}" placeholder="0">
+          </div>
+        </div>
+        <div>
+          <div class="label">备注</div>
+          <textarea class="note-box grade-note" data-grade="${item.key}" placeholder="可选备注"></textarea>
+        </div>
+        <div class="grade-total">
+          <span>自动金额</span>
+          <strong id="grade-total-${item.key}">¥ 0</strong>
+        </div>
+      </div>
+    `).join("");
+
+    function readSaleDraft() {
+      const gradeItems = {};
+      gradeConfig.forEach((item) => {
+        gradeItems[item.key] = {
+          price: Number(document.querySelector(`.grade-price[data-grade="${item.key}"]`).value || 0),
+          quantity: Number(document.querySelector(`.grade-quantity[data-grade="${item.key}"]`).value || 0),
+          note: document.querySelector(`.grade-note[data-grade="${item.key}"]`).value.trim()
+        };
+      });
+
+      return {
+        date: document.getElementById("sale-date").value,
+        customer: document.getElementById("sale-customer").value.trim(),
+        saleMethod: document.getElementById("sale-method").value,
+        paymentStatus: document.getElementById("sale-payment-status").value,
+        gradeItems
+      };
+    }
+
+    function updateDraftSummary() {
+      const draft = readSaleDraft();
+      const gradeData = gradeConfig.map((item) => {
+        const row = draft.gradeItems[item.key];
+        const amount = (row.price || 0) * (row.quantity || 0);
+        document.getElementById(`grade-total-${item.key}`).textContent = OrchidBookkeeping.formatCurrencyPrecise(amount);
+        return {
+          label: item.label,
+          amount
+        };
+      });
+
+      const totalAmount = gradeData.reduce((sum, item) => sum + item.amount, 0);
+      const totalQuantity = gradeConfig.reduce((sum, item) => sum + (draft.gradeItems[item.key].quantity || 0), 0);
+      floatingSalesTotal.textContent = OrchidBookkeeping.formatCurrencyPrecise(totalAmount);
+      floatingSalesQuantity.textContent = `${totalQuantity} 株`;
+      salesTopbarMeta.textContent = `本次订单：${draft.customer || "未填写客户"}`;
+
+      salesShortcuts.innerHTML = `
+        <div class="mobile-shortcut"><strong>${gradeConfig.length}级</strong>等级</div>
+        <div class="mobile-shortcut"><strong>${totalQuantity}株</strong>数量</div>
+        <div class="mobile-shortcut"><strong>${OrchidBookkeeping.formatCurrencyPrecise(totalAmount).replace("¥ ", "¥")}</strong>合计</div>
+        <div class="mobile-shortcut"><strong>${draft.paymentStatus === "已收款" ? "已收" : draft.paymentStatus === "部分收款" ? "部分" : "未收"}</strong>状态</div>
+      `;
+
+      const total = totalAmount || 1;
+      salesBreakdown.innerHTML = gradeData.map((item) => `
+        <div class="bar-row">
+          <div>${item.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round((item.amount / total) * 100)}%;"></div></div>
+          <div>${Math.round((item.amount / total) * 100)}%</div>
+        </div>
+      `).join("");
+    }
+
+    function renderHistory() {
+      const records = OrchidBookkeeping.getSalesRecords();
+      if (!records.length) {
+        salesHistoryList.innerHTML = '<div class="record-meta">还没有销售记录。</div>';
+        return;
+      }
+
+      salesHistoryList.innerHTML = records.map((record) => `
+        <div class="record-card">
+          <div class="record-head">
+            <div class="record-title">${record.customer || "未命名客户"} · ${record.paymentStatus || "未标记"}</div>
+            <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.totalAmount)}</div>
+          </div>
+          <div class="record-meta">${record.date} · ${record.totalQuantity} 株 · ${record.saleMethod}</div>
+          <div class="record-meta">${record.gradeItems.map((item) => `${item.gradeLabel}${item.quantity ? ` ${item.quantity}株` : ""}`).join(" / ")}</div>
+          <div class="actions">
+            <button class="btn" type="button" data-sale-delete="${record.id}">删除</button>
+          </div>
+        </div>
+      `).join("");
+
+      salesHistoryList.querySelectorAll("[data-sale-delete]").forEach((button) => {
+        button.addEventListener("click", () => {
+          OrchidBookkeeping.deleteSaleRecord(button.dataset.saleDelete);
+          renderHistory();
+        });
+      });
+    }
+
+    function resetForm() {
+      salesForm.reset();
+      document.getElementById("sale-date").value = OrchidBookkeeping.toDateKey(new Date());
+      document.getElementById("sale-method").value = "批发销售";
+      document.getElementById("sale-payment-status").value = "已收款";
+      updateDraftSummary();
+    }
+
+    salesForm.addEventListener("input", updateDraftSummary);
+    salesForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const draft = readSaleDraft();
+      OrchidBookkeeping.saveSaleRecord(draft);
+      renderHistory();
+      resetForm();
+    });
+
+    continueButton.addEventListener("click", resetForm);
+    resetButton.addEventListener("click", resetForm);
+
+    updateDraftSummary();
+    renderHistory();
+  </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>兰花记账软件 - 支出登记</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="frame">
+      <div class="topbar">
+        <div class="mobile-statusbar">
+          <span>9:41</span>
+          <div class="status-icons">
+            <span>5G</span>
+            <span>88%</span>
+          </div>
+        </div>
+        <div class="brand">
+          <div class="brand-mark">兰</div>
+          <div>
+            <h1>兰花记账软件</h1>
+            <p>支出登记</p>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <p class="meta-line">单笔快速录入</p>
+          <p class="meta-line" id="expense-topbar-meta">今天已记录 0 笔支出</p>
+        </div>
+      </div>
+      <div class="app-body">
+        <main class="content">
+          <section class="hero-card">
+            <div class="eyebrow">今日支出概览</div>
+            <div class="kpi-value" id="expense-today-total">¥ 0</div>
+            <div class="kpi-label" id="expense-today-label">今天还没有支出记录。</div>
+            <div class="summary-inline" id="expense-summary-inline"></div>
+          </section>
+
+          <h2 class="section-title">快速录入一笔支出</h2>
+          <p class="section-subtitle">保存后会自动加入今日明细，并参与首页和统计页汇总。</p>
+
+          <form id="expense-form">
+            <section class="entry-card">
+              <h3>支出信息</h3>
+              <div class="field-grid">
+                <div>
+                  <div class="label">日期</div>
+                  <input class="input-box" type="date" id="expense-date" required>
+                </div>
+                <div>
+                  <div class="label">支出类型</div>
+                  <select class="select-box" id="expense-type">
+                    <option>工人开销</option>
+                    <option>材料采购</option>
+                    <option>幼苗采购</option>
+                    <option>运输费用</option>
+                    <option>其他支出</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="label">金额</div>
+                  <input class="input-box" type="number" min="0" step="0.01" id="expense-amount" required>
+                </div>
+                <div>
+                  <div class="label">付款方式</div>
+                  <select class="select-box" id="expense-payment">
+                    <option>现金</option>
+                    <option>微信</option>
+                    <option>支付宝</option>
+                    <option>银行卡</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div class="label">备注</div>
+                <textarea class="note-box" id="expense-note" placeholder="填写支出说明"></textarea>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="submit">保存支出</button>
+                <button class="btn" type="button" id="expense-reset-button">继续录入</button>
+              </div>
+            </section>
+          </form>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>常用分类</h3>
+            <div class="chip-group" id="expense-chip-group">
+              <div class="chip active" data-expense-type="工人开销">工人开销</div>
+              <div class="chip" data-expense-type="材料采购">材料采购</div>
+              <div class="chip" data-expense-type="幼苗采购">幼苗采购</div>
+              <div class="chip" data-expense-type="运输费用">运输费用</div>
+              <div class="chip" data-expense-type="其他支出">其他支出</div>
+            </div>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>今日支出明细</h3>
+            <div class="timeline" id="expense-timeline"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="floating-total">
+    <div>
+      <small>快速保存当前支出</small>
+      <strong id="expense-floating-amount">¥ 0</strong>
+    </div>
+    <button type="submit" form="expense-form">保存</button>
+  </div>
+  <nav class="mobile-tabbar">
+    <a href="dashboard.html"><strong>首页</strong>概览</a>
+    <a href="sales.html"><strong>销售</strong>记账</a>
+    <a class="active" href="expenses.html"><strong>支出</strong>登记</a>
+    <a href="analytics.html"><strong>统计</strong>分析</a>
+  </nav>
+
+  <script src="data.js"></script>
+  <script>
+    OrchidBookkeeping.seedDemoData();
+
+    const expenseForm = document.getElementById("expense-form");
+    const expenseDate = document.getElementById("expense-date");
+    const expenseType = document.getElementById("expense-type");
+    const expenseAmount = document.getElementById("expense-amount");
+    const expensePayment = document.getElementById("expense-payment");
+    const expenseNote = document.getElementById("expense-note");
+    const expenseResetButton = document.getElementById("expense-reset-button");
+    const expenseTimeline = document.getElementById("expense-timeline");
+    const expenseTodayTotal = document.getElementById("expense-today-total");
+    const expenseTodayLabel = document.getElementById("expense-today-label");
+    const expenseSummaryInline = document.getElementById("expense-summary-inline");
+    const expenseTopbarMeta = document.getElementById("expense-topbar-meta");
+    const expenseChipGroup = document.getElementById("expense-chip-group");
+    const expenseFloatingAmount = document.getElementById("expense-floating-amount");
+
+    expenseDate.value = OrchidBookkeeping.toDateKey(new Date());
+
+    function resetExpenseForm() {
+      expenseForm.reset();
+      expenseDate.value = OrchidBookkeeping.toDateKey(new Date());
+      expenseType.value = "工人开销";
+      expensePayment.value = "现金";
+      syncChipState();
+      updateFloatingAmount();
+    }
+
+    function updateFloatingAmount() {
+      expenseFloatingAmount.textContent = OrchidBookkeeping.formatCurrencyPrecise(expenseAmount.value || 0);
+    }
+
+    function syncChipState() {
+      expenseChipGroup.querySelectorAll(".chip").forEach((chip) => {
+        chip.classList.toggle("active", chip.dataset.expenseType === expenseType.value);
+      });
+    }
+
+    function renderExpenseSummary() {
+      const summary = OrchidBookkeeping.getTodaySummary();
+      const breakdown = OrchidBookkeeping.getExpenseBreakdown("day");
+      expenseTodayTotal.textContent = OrchidBookkeeping.formatCurrencyPrecise(summary.expenseTotal);
+      expenseTodayLabel.textContent = summary.expenseCount
+        ? `今天已记 ${summary.expenseCount} 笔，当前总支出 ${OrchidBookkeeping.formatCurrencyPrecise(summary.expenseTotal)}。`
+        : "今天还没有支出记录。";
+      expenseTopbarMeta.textContent = `今天已记录 ${summary.expenseCount} 笔支出`;
+
+      expenseSummaryInline.innerHTML = breakdown.slice(0, 4).map((item) => `
+        <div class="summary-chip">
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(item.amount)}</strong>
+          <span>${item.label}</span>
+        </div>
+      `).join("") || `
+        <div class="summary-chip"><strong>¥ 0</strong><span>暂无记录</span></div>
+      `;
+    }
+
+    function renderExpenseTimeline() {
+      const todayKey = OrchidBookkeeping.toDateKey(new Date());
+      const records = OrchidBookkeeping.getExpenseRecords().filter((item) => item.date === todayKey);
+      if (!records.length) {
+        expenseTimeline.innerHTML = '<div class="record-meta">今天还没有支出记录。</div>';
+        return;
+      }
+
+      expenseTimeline.innerHTML = records.map((record) => `
+        <div class="timeline-item">
+          <div class="timeline-head">
+            <div class="timeline-title">${record.expenseType}</div>
+            <div class="timeline-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.amount)}</div>
+          </div>
+          <div class="timeline-meta">${record.paymentMethod} · ${record.note || "无备注"}</div>
+          <div class="actions">
+            <button class="btn" type="button" data-expense-delete="${record.id}">删除</button>
+          </div>
+        </div>
+      `).join("");
+
+      expenseTimeline.querySelectorAll("[data-expense-delete]").forEach((button) => {
+        button.addEventListener("click", () => {
+          OrchidBookkeeping.deleteExpenseRecord(button.dataset.expenseDelete);
+          renderExpenseSummary();
+          renderExpenseTimeline();
+        });
+      });
+    }
+
+    expenseChipGroup.querySelectorAll(".chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        expenseType.value = chip.dataset.expenseType;
+        syncChipState();
+      });
+    });
+
+    expenseType.addEventListener("change", syncChipState);
+    expenseAmount.addEventListener("input", updateFloatingAmount);
+
+    expenseForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      OrchidBookkeeping.saveExpenseRecord({
+        date: expenseDate.value,
+        expenseType: expenseType.value,
+        amount: expenseAmount.value,
+        paymentMethod: expensePayment.value,
+        note: expenseNote.value.trim()
+      });
+      renderExpenseSummary();
+      renderExpenseTimeline();
+      resetExpenseForm();
+    });
+
+    expenseResetButton.addEventListener("click", resetExpenseForm);
+
+    syncChipState();
+    updateFloatingAmount();
+    renderExpenseSummary();
+    renderExpenseTimeline();
+  </script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>兰花记账软件 - 统计分析</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="frame">
+      <div class="topbar">
+        <div class="mobile-statusbar">
+          <span>9:41</span>
+          <div class="status-icons">
+            <span>5G</span>
+            <span>88%</span>
+          </div>
+        </div>
+        <div class="brand">
+          <div class="brand-mark">兰</div>
+          <div>
+            <h1>兰花记账软件</h1>
+            <p>统计分析</p>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <p class="meta-line">移动端复盘页</p>
+          <p class="meta-line" id="analytics-label">日 / 周 / 月汇总查看</p>
+        </div>
+      </div>
+      <div class="app-body">
+        <main class="content">
+          <section class="panel">
+            <h3>统计范围</h3>
+            <div class="segmented">
+              <div class="segment" data-mode="day">日</div>
+              <div class="segment" data-mode="week">周</div>
+              <div class="segment active" data-mode="month">月</div>
+            </div>
+            <div class="field-grid single" style="margin-top: 12px;">
+              <div>
+                <div class="label">当前周期</div>
+                <div class="input-box" id="analytics-period-label"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="summary-grid" style="margin-top: 12px;" id="analytics-summary-grid"></section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>收支对比</h3>
+            <div class="bar-chart" id="analytics-bar-chart"></div>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>利润趋势</h3>
+            <svg class="trend-svg" viewBox="0 0 360 132" xmlns="http://www.w3.org/2000/svg">
+              <line x1="26" y1="18" x2="26" y2="108" stroke="#c7d4c3" stroke-width="1"/>
+              <line x1="26" y1="108" x2="334" y2="108" stroke="#c7d4c3" stroke-width="1"/>
+              <polyline id="analytics-sales-line" fill="none" stroke="#3d8156" stroke-width="4" points="38,90 86,82 134,70 182,60 230,48 278,38 326,32"/>
+              <polyline id="analytics-profit-line" fill="none" stroke="#3b8a74" stroke-width="4" points="38,100 86,92 134,82 182,68 230,58 278,46 326,40"/>
+            </svg>
+            <div class="record-meta">深绿为销售走势，青绿为利润走势。</div>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>支出结构</h3>
+            <div class="donut"></div>
+            <div class="legend" id="analytics-expense-legend"></div>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <div class="record-head">
+              <h3 style="margin: 0;">周期明细</h3>
+              <button class="btn" type="button" id="analytics-export-button">导出</button>
+            </div>
+            <div class="period-list" style="margin-top: 12px;" id="analytics-period-list"></div>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
+            <h3>导入备份</h3>
+            <input class="input-box" type="file" id="analytics-import-input" accept="application/json">
+            <div class="record-meta" style="margin-top: 10px;">选择之前导出的 JSON 文件，即可恢复本地数据。</div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+  <nav class="mobile-tabbar">
+    <a href="dashboard.html"><strong>首页</strong>概览</a>
+    <a href="sales.html"><strong>销售</strong>记账</a>
+    <a href="expenses.html"><strong>支出</strong>登记</a>
+    <a class="active" href="analytics.html"><strong>统计</strong>分析</a>
+  </nav>
+
+  <script src="data.js"></script>
+  <script>
+    let currentMode = "month";
+
+    function buildPolylinePoints(values, minY, maxY) {
+      const maxValue = Math.max(...values, 1);
+      const stepX = 48;
+      return values.map((value, index) => {
+        const x = 38 + index * stepX;
+        const y = maxY - (value / maxValue) * (maxY - minY);
+        return `${x},${y}`;
+      }).join(" ");
+    }
+
+    function buildTrendBase(mode) {
+      const points = [];
+      const summaryList = [];
+      const totalSteps = mode === "day" ? 7 : mode === "week" ? 6 : 6;
+      for (let i = totalSteps - 1; i >= 0; i -= 1) {
+        const date = new Date();
+        if (mode === "day") {
+          date.setDate(date.getDate() - i);
+        } else if (mode === "week") {
+          date.setDate(date.getDate() - i * 7);
+        } else {
+          date.setMonth(date.getMonth() - i);
+        }
+        summaryList.push(OrchidBookkeeping.getRangeSummary(mode, date));
+      }
+      return summaryList;
+    }
+
+    function downloadBackup() {
+      const blob = new Blob([OrchidBookkeeping.exportStore()], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `orchid-bookkeeping-backup-${OrchidBookkeeping.toDateKey(new Date())}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderAnalytics() {
+      const summary = OrchidBookkeeping.getRangeSummary(currentMode);
+      const breakdown = OrchidBookkeeping.getExpenseBreakdown(currentMode);
+      const trendBase = buildTrendBase(currentMode);
+
+      document.getElementById("analytics-label").textContent = `${summary.label} 汇总`;
+      document.getElementById("analytics-period-label").textContent = summary.label;
+      document.getElementById("analytics-summary-grid").innerHTML = `
+        <div class="mini-card">
+          <div class="muted">当前周期总销售</div>
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(summary.salesTotal)}</strong>
+          <span>销售记录 ${summary.salesCount} 笔</span>
+        </div>
+        <div class="mini-card">
+          <div class="muted">当前周期总支出</div>
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(summary.expenseTotal)}</strong>
+          <span>支出记录 ${summary.expenseCount} 笔</span>
+        </div>
+        <div class="mini-card">
+          <div class="muted">当前周期利润</div>
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(summary.profitTotal)}</strong>
+          <span>利润 = 销售 - 支出</span>
+        </div>
+      `;
+
+      const maxAmount = Math.max(summary.salesTotal, summary.expenseTotal, Math.abs(summary.profitTotal), 1);
+      document.getElementById("analytics-bar-chart").innerHTML = `
+        <div class="bar-row">
+          <div>销售</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round((summary.salesTotal / maxAmount) * 100)}%;"></div></div>
+          <div>${Math.round(summary.salesTotal)}</div>
+        </div>
+        <div class="bar-row">
+          <div>支出</div>
+          <div class="bar-track"><div class="bar-fill expense" style="width:${Math.round((summary.expenseTotal / maxAmount) * 100)}%;"></div></div>
+          <div>${Math.round(summary.expenseTotal)}</div>
+        </div>
+        <div class="bar-row">
+          <div>利润</div>
+          <div class="bar-track"><div class="bar-fill profit" style="width:${Math.round((Math.abs(summary.profitTotal) / maxAmount) * 100)}%;"></div></div>
+          <div>${Math.round(summary.profitTotal)}</div>
+        </div>
+      `;
+
+      document.getElementById("analytics-sales-line").setAttribute("points", buildPolylinePoints(trendBase.map((item) => item.salesTotal), 26, 98));
+      document.getElementById("analytics-profit-line").setAttribute("points", buildPolylinePoints(trendBase.map((item) => item.profitTotal), 34, 104));
+
+      const legend = document.getElementById("analytics-expense-legend");
+      if (!breakdown.length) {
+        legend.innerHTML = '<div class="record-meta">当前周期没有支出数据。</div>';
+      } else {
+        const dotClasses = ["green", "light-green", "orange", "blue"];
+        legend.innerHTML = breakdown.map((item, index) => `
+          <div class="legend-item">
+            <div class="legend-label"><span class="dot ${dotClasses[index % dotClasses.length]}"></span>${item.label}</div>
+            <div>${item.percent}%</div>
+          </div>
+        `).join("");
+      }
+
+      const periods = trendBase.slice().reverse();
+      document.getElementById("analytics-period-list").innerHTML = periods.map((item) => `
+        <div class="period-card">
+          <div class="period-head">
+            <div class="period-title">${item.label}</div>
+            <div class="period-profit">${OrchidBookkeeping.formatCurrencyPrecise(item.profitTotal)}</div>
+          </div>
+          <div class="period-meta">销售 ${item.salesCount} 笔，支出 ${item.expenseCount} 笔。</div>
+          <div class="period-values">
+            <div>销售<strong>${OrchidBookkeeping.formatCurrencyPrecise(item.salesTotal)}</strong></div>
+            <div>支出<strong>${OrchidBookkeeping.formatCurrencyPrecise(item.expenseTotal)}</strong></div>
+            <div>利润<strong>${OrchidBookkeeping.formatCurrencyPrecise(item.profitTotal)}</strong></div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    document.querySelectorAll("[data-mode]").forEach((segment) => {
+      segment.addEventListener("click", () => {
+        currentMode = segment.dataset.mode;
+        document.querySelectorAll("[data-mode]").forEach((item) => item.classList.toggle("active", item === segment));
+        renderAnalytics();
+      });
+    });
+
+    document.getElementById("analytics-export-button").addEventListener("click", downloadBackup);
+    document.getElementById("analytics-import-input").addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      OrchidBookkeeping.importStore(text);
+      renderAnalytics();
+      alert("导入成功，统计数据已刷新。");
+    });
+
+    renderAnalytics();
+  </script>
+</body>
+</html>
