@@ -152,7 +152,11 @@ const OrchidBookkeeping = (() => {
   function getTodaySummary(referenceDate = new Date()) {
     const dayKey = toDateKey(referenceDate);
     const sales = getSalesRecords().filter((item) => toDateKey(item.date) === dayKey);
-    const expenses = getExpenseRecords().filter((item) => toDateKey(item.date) === dayKey);
+    const dayStart = startOfDay(referenceDate);
+    const expenses = [
+      ...getExpenseRecords().filter((item) => toDateKey(item.date) === dayKey),
+      ...buildWorkerExpenseSummaries(dayStart, dayStart)
+    ];
     return buildSummaryFromLists(sales, expenses);
   }
 
@@ -188,12 +192,43 @@ const OrchidBookkeeping = (() => {
     };
   }
 
+  function buildWorkerExpenseSummaries(start, end) {
+    const workerMap = new Map(getWorkers().map((worker) => [worker.id, worker]));
+    const grouped = {};
+
+    getWorkerRecords().forEach((record) => {
+      if (!isDateInRange(record.date, start, end)) return;
+      const worker = workerMap.get(record.workerId);
+      if (!worker) return;
+      const dateKey = toDateKey(record.date);
+      const groupKey = `${record.workerId}_${dateKey}`;
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = {
+          id: groupKey,
+          date: dateKey,
+          expenseType: "????",
+          amount: 0,
+          paymentMethod: "???",
+          note: `${worker.name} ????`,
+          createdAt: record.createdAt
+        };
+      }
+      grouped[groupKey].amount += record.isHalfDay
+        ? normalizeNumber(worker.dailyWage) * 0.5
+        : normalizeNumber(worker.dailyWage);
+    });
+
+    return Object.values(grouped);
+  }
+
   function getRangeSummary(mode, anchorDate = new Date()) {
     const sales = getSalesRecords();
-    const expenses = getExpenseRecords();
     const range = resolveRange(mode, anchorDate);
     const filteredSales = sales.filter((item) => isDateInRange(item.date, range.start, range.end));
-    const filteredExpenses = expenses.filter((item) => isDateInRange(item.date, range.start, range.end));
+    const filteredExpenses = [
+      ...getExpenseRecords().filter((item) => isDateInRange(item.date, range.start, range.end)),
+      ...buildWorkerExpenseSummaries(range.start, range.end)
+    ];
     return {
       mode,
       label: range.label,
@@ -311,6 +346,7 @@ const OrchidBookkeeping = (() => {
     const store = readStore();
     store.workers = store.workers.filter((w) => w.id !== id);
     store.workerRecords = store.workerRecords.filter((r) => r.workerId !== id);
+    store.workerSettlements = store.workerSettlements.filter((s) => s.workerId !== id);
     writeStore(store);
   }
 

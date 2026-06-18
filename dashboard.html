@@ -173,7 +173,7 @@
         (s.gradeItems || []).forEach((g) => {
           if (!gradeBreakdown[g.gradeLabel]) gradeBreakdown[g.gradeLabel] = { qty: 0, amount: 0 };
           gradeBreakdown[g.gradeLabel].qty += g.quantity;
-          gradeBreakdown[g.gradeLabel].amount += g.totalAmount;
+          gradeBreakdown[g.gradeLabel].amount += g.amount;
         });
       });
       const gradeLines = Object.keys(gradeBreakdown).length

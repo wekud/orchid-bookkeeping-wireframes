@@ -108,7 +108,7 @@
       <small>快速保存当前支出</small>
       <strong id="expense-floating-amount">¥ 0</strong>
     </div>
-    <button type="submit" form="expense-form">保存</button>
+    <button type="button" id="expense-floating-save">保存</button>
   </div>
   <nav class="mobile-tabbar">
     <a href="dashboard.html"><strong>首页</strong>概览</a>
@@ -135,6 +135,7 @@
     const expenseTopbarMeta = document.getElementById("expense-topbar-meta");
     const expenseChipGroup = document.getElementById("expense-chip-group");
     const expenseFloatingAmount = document.getElementById("expense-floating-amount");
+    const expenseFloatingSave = document.getElementById("expense-floating-save");
 
     expenseDate.value = OrchidBookkeeping.toDateKey(new Date());
 
@@ -206,6 +207,20 @@
       });
     }
 
+    function submitExpenseForm() {
+      if (!expenseForm.reportValidity()) return;
+      OrchidBookkeeping.saveExpenseRecord({
+        date: expenseDate.value,
+        expenseType: expenseType.value,
+        amount: expenseAmount.value,
+        paymentMethod: expensePayment.value,
+        note: expenseNote.value.trim()
+      });
+      renderExpenseSummary();
+      renderExpenseTimeline();
+      resetExpenseForm();
+    }
+
     expenseChipGroup.querySelectorAll(".chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         expenseType.value = chip.dataset.expenseType;
@@ -218,19 +233,11 @@
 
     expenseForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      OrchidBookkeeping.saveExpenseRecord({
-        date: expenseDate.value,
-        expenseType: expenseType.value,
-        amount: expenseAmount.value,
-        paymentMethod: expensePayment.value,
-        note: expenseNote.value.trim()
-      });
-      renderExpenseSummary();
-      renderExpenseTimeline();
-      resetExpenseForm();
+      submitExpenseForm();
     });
 
     expenseResetButton.addEventListener("click", resetExpenseForm);
+    expenseFloatingSave.addEventListener("click", submitExpenseForm);
 
     syncChipState();
     updateFloatingAmount();
