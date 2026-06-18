@@ -11,7 +11,8 @@ const OrchidBookkeeping = (() => {
     salesRecords: [],
     expenseRecords: [],
     workers: [],
-    workerRecords: []
+    workerRecords: [],
+    workerSettlements: []
   };
 
   function createId(prefix) {
@@ -31,7 +32,8 @@ const OrchidBookkeeping = (() => {
         salesRecords: Array.isArray(parsed.salesRecords) ? parsed.salesRecords : [],
         expenseRecords: Array.isArray(parsed.expenseRecords) ? parsed.expenseRecords : [],
         workers: Array.isArray(parsed.workers) ? parsed.workers : [],
-        workerRecords: Array.isArray(parsed.workerRecords) ? parsed.workerRecords : []
+        workerRecords: Array.isArray(parsed.workerRecords) ? parsed.workerRecords : [],
+        workerSettlements: Array.isArray(parsed.workerSettlements) ? parsed.workerSettlements : []
       };
     } catch (error) {
       return clone(DEFAULT_STORE);
@@ -339,21 +341,57 @@ const OrchidBookkeeping = (() => {
     writeStore(store);
   }
 
+  // ========== 工人结算 ==========
+
+  function getWorkerSettlements(workerId) {
+    const settlements = readStore().workerSettlements;
+    if (workerId) return settlements.filter((s) => s.workerId === workerId);
+    return settlements;
+  }
+
+  function saveWorkerSettlement(payload) {
+    const store = readStore();
+    const record = {
+      id: createId("ws"),
+      workerId: payload.workerId,
+      date: payload.date || toDateKey(new Date()),
+      amount: normalizeNumber(payload.amount),
+      note: payload.note || "",
+      createdAt: new Date().toISOString()
+    };
+    store.workerSettlements.unshift(record);
+    writeStore(store);
+    return record;
+  }
+
+  function deleteWorkerSettlement(id) {
+    const store = readStore();
+    store.workerSettlements = store.workerSettlements.filter((s) => s.id !== id);
+    writeStore(store);
+  }
+
   function getWorkerSummary() {
     const workers = getWorkers();
     const records = getWorkerRecords();
+    const settlements = getWorkerSettlements();
     return workers.map((worker) => {
       const workerRecords = records.filter((r) => r.workerId === worker.id);
+      const workerSettlements = settlements.filter((s) => s.workerId === worker.id);
       const fullDays = workerRecords.filter((r) => !r.isHalfDay).length;
       const halfDays = workerRecords.filter((r) => r.isHalfDay).length;
       const totalDays = fullDays + halfDays * 0.5;
+      const totalWage = totalDays * worker.dailyWage;
+      const settledAmount = workerSettlements.reduce((sum, s) => sum + s.amount, 0);
       return {
         ...worker,
         fullDays,
         halfDays,
         totalDays,
-        totalWage: totalDays * worker.dailyWage,
-        records: workerRecords
+        totalWage,
+        settledAmount,
+        unsettledAmount: totalWage - settledAmount,
+        records: workerRecords,
+        settlements: workerSettlements
       };
     });
   }
@@ -368,7 +406,8 @@ const OrchidBookkeeping = (() => {
       salesRecords: Array.isArray(parsed.salesRecords) ? parsed.salesRecords : [],
       expenseRecords: Array.isArray(parsed.expenseRecords) ? parsed.expenseRecords : [],
       workers: Array.isArray(parsed.workers) ? parsed.workers : [],
-      workerRecords: Array.isArray(parsed.workerRecords) ? parsed.workerRecords : []
+      workerRecords: Array.isArray(parsed.workerRecords) ? parsed.workerRecords : [],
+      workerSettlements: Array.isArray(parsed.workerSettlements) ? parsed.workerSettlements : []
     };
     writeStore(nextStore);
     return nextStore;
@@ -447,6 +486,9 @@ const OrchidBookkeeping = (() => {
     getWorkerRecords,
     saveWorkerRecord,
     deleteWorkerRecord,
-    getWorkerSummary
+    getWorkerSummary,
+    getWorkerSettlements,
+    saveWorkerSettlement,
+    deleteWorkerSettlement
   };
 })();

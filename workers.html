@@ -253,7 +253,7 @@
     <a href="analytics.html"><strong>统计</strong>分析</a>
   </nav>
 
-  <script src="data.js?v=2"></script>
+  <script src="data.js?v=3"></script>
   <script>
     const workerListEl = document.getElementById("worker-list");
     const fabBtn = document.getElementById("fab-add-worker");
@@ -318,11 +318,23 @@
       const cells = getMonthDays(year, month);
       const todayKey = OrchidBookkeeping.toDateKey(new Date());
 
-      // 构建出勤 map
+      // 构建出勤 map & 本月统计
       const attendMap = {};
+      let monthFullDays = 0;
+      let monthHalfDays = 0;
       records.forEach((r) => {
         attendMap[r.date] = r;
+        // 判断是否在当前查看的月份
+        const parts = r.date.split("-");
+        const rYear = parseInt(parts[0], 10);
+        const rMonth = parseInt(parts[1], 10) - 1;
+        if (rYear === year && rMonth === month) {
+          if (r.isHalfDay) monthHalfDays++;
+          else monthFullDays++;
+        }
       });
+      const monthTotalDays = monthFullDays + monthHalfDays * 0.5;
+      const monthWage = monthTotalDays * worker.dailyWage;
 
       const monthLabel = `${year} 年 ${month + 1} 月`;
       const weekHeaders = ["一", "二", "三", "四", "五", "六", "日"];
@@ -333,6 +345,16 @@
           <span>${monthLabel}</span>
           <button type="button" data-cal-next="${wid}">下月 ▶</button>
         </div>
+
+        <div style="background:#f0f7ee;border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+          <div style="font-size:13px;color:#234431;">
+            本月：<strong>${monthFullDays}</strong> 全天 + <strong>${monthHalfDays}</strong> 半天 = <strong>${monthTotalDays}</strong> 天
+          </div>
+          <div style="font-size:15px;font-weight:700;color:#3d8156;">
+            ${OrchidBookkeeping.formatCurrencyPrecise(monthWage)}
+          </div>
+        </div>
+
         <div class="calendar-grid">
           ${weekHeaders.map((h) => `<div class="cal-header">${h}</div>`).join("")}
       `;
@@ -400,9 +422,11 @@
       document.getElementById("worker-count-label").textContent = `共 ${summary.length} 名工人`;
 
       const totalWage = summary.reduce((sum, w) => sum + w.totalWage, 0);
+      const totalSettled = summary.reduce((sum, w) => sum + w.settledAmount, 0);
+      const totalUnsettled = summary.reduce((sum, w) => sum + w.unsettledAmount, 0);
       const totalDays = summary.reduce((sum, w) => sum + w.totalDays, 0);
-      document.getElementById("worker-total-wage").textContent = OrchidBookkeeping.formatCurrencyPrecise(totalWage);
-      document.getElementById("worker-total-detail").textContent = `共 ${summary.length} 名工人，累计 ${totalDays} 天。`;
+      document.getElementById("worker-total-wage").textContent = OrchidBookkeeping.formatCurrencyPrecise(totalUnsettled);
+      document.getElementById("worker-total-detail").textContent = `共 ${summary.length} 名工人，累计 ${totalDays} 天，待结算 ${OrchidBookkeeping.formatCurrencyPrecise(totalUnsettled)}。`;
 
       document.getElementById("worker-summary-inline").innerHTML = `
         <div class="summary-chip">
@@ -414,8 +438,12 @@
           <span>累计出勤</span>
         </div>
         <div class="summary-chip">
-          <strong>${OrchidBookkeeping.formatCurrencyPrecise(totalWage)}</strong>
-          <span>累计工资</span>
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(totalSettled)}</strong>
+          <span>已结算</span>
+        </div>
+        <div class="summary-chip">
+          <strong>${OrchidBookkeeping.formatCurrencyPrecise(totalUnsettled)}</strong>
+          <span>未结算</span>
         </div>
       `;
 
@@ -448,6 +476,56 @@
                 <div data-calendar="${worker.id}">
                   ${renderCalendar(worker, worker.records)}
                 </div>
+              </div>
+
+              <!-- 工资结算 -->
+              <div style="margin-top:16px;border-top:1px solid #e2ece0;padding-top:12px;">
+                <h3>工资结算</h3>
+                <div style="background:#f7fbf6;border:1px solid #e2ece0;border-radius:12px;padding:12px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;">
+                    <span style="color:#64796b;">累计工资</span>
+                    <strong>${OrchidBookkeeping.formatCurrencyPrecise(worker.totalWage)}</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;">
+                    <span style="color:#64796b;">已结算</span>
+                    <strong style="color:#3d8156;">${OrchidBookkeeping.formatCurrencyPrecise(worker.settledAmount)}</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid #e2ece0;font-size:15px;">
+                    <span style="color:#234431;font-weight:700;">未结算</span>
+                    <strong style="color:#c0392b;">${OrchidBookkeeping.formatCurrencyPrecise(worker.unsettledAmount)}</strong>
+                  </div>
+                </div>
+                <div class="field-grid" style="margin-top:10px;">
+                  <div>
+                    <div class="label">结算金额（元）</div>
+                    <input class="input-box" type="number" value="${worker.unsettledAmount > 0 ? worker.unsettledAmount : ""}" placeholder="输入结算金额" min="0" step="10" data-settle-amount="${worker.id}">
+                  </div>
+                  <div>
+                    <div class="label">备注（可选）</div>
+                    <input class="input-box" type="text" placeholder="如：6月工资" data-settle-note="${worker.id}">
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="btn primary" type="button" data-settle-btn="${worker.id}">确认结算</button>
+                </div>
+                ${worker.settlements.length ? `
+                  <div style="margin-top:10px;">
+                    <div class="record-meta" style="margin-bottom:6px;">结算记录</div>
+                    <div class="timeline">
+                      ${worker.settlements.sort((a, b) => b.date.localeCompare(a.date)).map((s) => `
+                        <div class="timeline-item">
+                          <div class="timeline-head">
+                            <div class="timeline-title">${s.date} ${s.note || ""}</div>
+                            <div class="timeline-amount">${OrchidBookkeeping.formatCurrencyPrecise(s.amount)}</div>
+                          </div>
+                          <div class="timeline-meta">
+                            <button class="btn" type="button" data-delete-settle="${s.id}" style="padding:2px 8px;font-size:11px;">删除</button>
+                          </div>
+                        </div>
+                      `).join("")}
+                    </div>
+                  </div>
+                ` : ""}
               </div>
 
               <!-- 编辑工人信息 -->
@@ -573,6 +651,36 @@
           if (confirm("确定删除该工人？所有出勤记录也会一并删除。")) {
             OrchidBookkeeping.deleteWorker(wid);
             expandedWorkerId = null;
+            renderAll();
+          }
+        });
+      });
+
+      // 确认结算
+      workerListEl.querySelectorAll("[data-settle-btn]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wid = btn.dataset.settleBtn;
+          const amountInput = workerListEl.querySelector(`[data-settle-amount="${wid}"]`);
+          const noteInput = workerListEl.querySelector(`[data-settle-note="${wid}"]`);
+          const amount = Number(amountInput.value);
+          if (!amount || amount <= 0) { alert("请输入有效的结算金额"); return; }
+          OrchidBookkeeping.saveWorkerSettlement({
+            workerId: wid,
+            date: OrchidBookkeeping.toDateKey(new Date()),
+            amount: amount,
+            note: noteInput.value.trim()
+          });
+          renderAll();
+        });
+      });
+
+      // 删除结算记录
+      workerListEl.querySelectorAll("[data-delete-settle]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (confirm("确定删除这条结算记录？")) {
+            OrchidBookkeeping.deleteWorkerSettlement(btn.dataset.deleteSettle);
             renderAll();
           }
         });
