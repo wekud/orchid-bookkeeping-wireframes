@@ -52,7 +52,7 @@
           <section class="mobile-shortcuts" id="dashboard-shortcuts"></section>
 
           <h2 class="section-title">常用查看</h2>
-          <p class="section-subtitle">首页直接从本地记录读取汇总，不再使用演示数据。</p>
+          <p class="section-subtitle">点击任意区块跳转详情页。</p>
 
           <section class="quick-grid" id="dashboard-quick-grid"></section>
 
@@ -92,8 +92,6 @@
 
   <script src="data.js"></script>
   <script>
-    OrchidBookkeeping.seedDemoData();
-
     function buildLastSevenDaysData() {
       const sales = OrchidBookkeeping.getSalesRecords();
       const expenses = OrchidBookkeeping.getExpenseRecords();
@@ -123,14 +121,18 @@
       }).join(" ");
     }
 
+    let latestExpanded = false;
+
     function renderDashboard() {
       const todaySummary = OrchidBookkeeping.getTodaySummary();
       const weekSummary = OrchidBookkeeping.getRangeSummary("week");
       const monthSummary = OrchidBookkeeping.getRangeSummary("month");
-      const latestRecords = OrchidBookkeeping.getLatestRecords(3);
+      const allSales = OrchidBookkeeping.getSalesRecords();
+      const allExpenses = OrchidBookkeeping.getExpenseRecords();
       const days = buildLastSevenDaysData();
+      const today = OrchidBookkeeping.toDateKey(new Date());
 
-      document.getElementById("dashboard-date-label").textContent = `${OrchidBookkeeping.toDateKey(new Date())} 今日汇总`;
+      document.getElementById("dashboard-date-label").textContent = `${today} 今日汇总`;
       document.getElementById("dashboard-count-label").textContent = `今天已记账 ${todaySummary.salesCount + todaySummary.expenseCount} 笔`;
       document.getElementById("today-profit").textContent = OrchidBookkeeping.formatCurrencyPrecise(todaySummary.profitTotal);
       document.getElementById("today-profit-detail").textContent = `今日利润 = 销售 ${OrchidBookkeeping.formatCurrencyPrecise(todaySummary.salesTotal)} - 支出 ${OrchidBookkeeping.formatCurrencyPrecise(todaySummary.expenseTotal)}`;
@@ -161,53 +163,143 @@
         <div class="mobile-shortcut"><strong>${OrchidBookkeeping.formatCurrencyPrecise(monthSummary.salesTotal).replace("¥ ", "¥")}</strong>本月汇总</div>
       `;
 
+      // 今日销售详情
+      const todaySales = allSales.filter((s) => s.date === today);
+      const gradeBreakdown = {};
+      todaySales.forEach((s) => {
+        (s.gradeItems || []).forEach((g) => {
+          if (!gradeBreakdown[g.gradeLabel]) gradeBreakdown[g.gradeLabel] = { qty: 0, amount: 0 };
+          gradeBreakdown[g.gradeLabel].qty += g.quantity;
+          gradeBreakdown[g.gradeLabel].amount += g.totalAmount;
+        });
+      });
+      const gradeLines = Object.keys(gradeBreakdown).length
+        ? Object.entries(gradeBreakdown).map(([label, d]) => `${label} ${d.qty}株 ${OrchidBookkeeping.formatCurrencyPrecise(d.amount)}`).join("、")
+        : "暂无";
+
+      // 今日支出详情
+      const todayExpenses = allExpenses.filter((e) => e.date === today);
+      const typeBreakdown = {};
+      todayExpenses.forEach((e) => {
+        const t = e.expenseType || "其他";
+        typeBreakdown[t] = (typeBreakdown[t] || 0) + e.amount;
+      });
+      const typeLines = Object.keys(typeBreakdown).length
+        ? Object.entries(typeBreakdown).map(([t, a]) => `${t} ${OrchidBookkeeping.formatCurrencyPrecise(a)}`).join("、")
+        : "暂无";
+
+      // 本周品类汇总
+      const weekSales = weekSummary.sales;
+      const weekGradeTotals = {};
+      weekSales.forEach((s) => {
+        (s.gradeItems || []).forEach((g) => {
+          weekGradeTotals[g.gradeLabel] = (weekGradeTotals[g.gradeLabel] || 0) + g.quantity;
+        });
+      });
+      const weekGradeLine = Object.keys(weekGradeTotals).length
+        ? Object.entries(weekGradeTotals).map(([l, q]) => `${l} ${q}株`).join("、")
+        : "暂无";
+
+      // 本月支出类型
+      const monthExpenses = monthSummary.expenses;
+      const monthTypeTotals = {};
+      monthExpenses.forEach((e) => {
+        const t = e.expenseType || "其他";
+        monthTypeTotals[t] = (monthTypeTotals[t] || 0) + e.amount;
+      });
+      const monthTypeLine = Object.keys(monthTypeTotals).length
+        ? Object.entries(monthTypeTotals).map(([t, a]) => `${t} ${OrchidBookkeeping.formatCurrencyPrecise(a)}`).join("、")
+        : "暂无";
+
       document.getElementById("dashboard-quick-grid").innerHTML = `
-        <div class="record-card">
+        <a class="record-card" href="sales.html" style="text-decoration:none;color:inherit;">
           <div class="record-head">
             <div class="record-title">今日销售记录</div>
             <div class="record-amount">${todaySummary.salesCount} 笔</div>
           </div>
           <div class="record-meta">今日销售合计 ${OrchidBookkeeping.formatCurrencyPrecise(todaySummary.salesTotal)}。</div>
-        </div>
-        <div class="record-card">
+          <div class="record-meta" style="margin-top:4px;color:#3d8156;">${gradeLines}</div>
+        </a>
+        <a class="record-card" href="expenses.html" style="text-decoration:none;color:inherit;">
           <div class="record-head">
             <div class="record-title">今日支出记录</div>
             <div class="record-amount">${todaySummary.expenseCount} 笔</div>
           </div>
           <div class="record-meta">今日支出合计 ${OrchidBookkeeping.formatCurrencyPrecise(todaySummary.expenseTotal)}。</div>
-        </div>
-        <div class="record-card">
+          <div class="record-meta" style="margin-top:4px;color:#d1914b;">${typeLines}</div>
+        </a>
+        <a class="record-card" href="sales.html" style="text-decoration:none;color:inherit;">
           <div class="record-head">
-            <div class="record-title">本周利润</div>
-            <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(weekSummary.profitTotal)}</div>
+            <div class="record-title">本周销售汇总</div>
+            <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(weekSummary.salesTotal)}</div>
           </div>
-          <div class="record-meta">${weekSummary.label}</div>
-        </div>
-        <div class="record-card">
+          <div class="record-meta">利润 ${OrchidBookkeeping.formatCurrencyPrecise(weekSummary.profitTotal)} · ${weekSummary.label}</div>
+          <div class="record-meta" style="margin-top:4px;color:#3d8156;">${weekGradeLine}</div>
+        </a>
+        <a class="record-card" href="analytics.html" style="text-decoration:none;color:inherit;">
           <div class="record-head">
             <div class="record-title">本月汇总</div>
             <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(monthSummary.salesTotal)}</div>
           </div>
-          <div class="record-meta">本月利润 ${OrchidBookkeeping.formatCurrencyPrecise(monthSummary.profitTotal)}。</div>
-        </div>
+          <div class="record-meta">利润 ${OrchidBookkeeping.formatCurrencyPrecise(monthSummary.profitTotal)} · ${monthSummary.label}</div>
+          <div class="record-meta" style="margin-top:4px;color:#d1914b;">${monthTypeLine}</div>
+        </a>
       `;
 
       document.getElementById("dashboard-sales-trend").setAttribute("points", buildPolylinePoints(days.map((item) => item.salesTotal), 26, 98));
       document.getElementById("dashboard-expense-trend").setAttribute("points", buildPolylinePoints(days.map((item) => item.expenseTotal), 34, 104));
 
-      const latestRecordsList = document.getElementById("latest-records-list");
-      if (!latestRecords.length) {
-        latestRecordsList.innerHTML = '<div class="record-meta">还没有最新记录。</div>';
-      } else {
-        latestRecordsList.innerHTML = latestRecords.map((record) => `
-          <div class="record-card">
-            <div class="record-head">
-              <div class="record-title">${record.title}</div>
-              <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.amount)}</div>
-            </div>
-            <div class="record-meta">${record.description}</div>
+      // 最近记录 - 展开/收纳
+      renderLatestRecords(allSales, allExpenses);
+    }
+
+    function renderLatestRecords(allSales, allExpenses) {
+      const container = document.getElementById("latest-records-list");
+      const allRecords = [
+        ...allSales.map((s) => ({
+          type: "sale",
+          title: `${s.customer || "客户"} 销售`,
+          amount: s.totalAmount,
+          date: s.date,
+          meta: `${s.totalQuantity} 株 · ${s.gradeItems.map((g) => g.gradeLabel).join("、")}`,
+          createdAt: s.createdAt
+        })),
+        ...allExpenses.map((e) => ({
+          type: "expense",
+          title: e.expenseType || "支出",
+          amount: e.amount,
+          date: e.date,
+          meta: `${e.paymentMethod || ""} · ${e.note || ""}`,
+          createdAt: e.createdAt
+        }))
+      ].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+      if (!allRecords.length) {
+        container.innerHTML = '<div class="record-meta">还没有任何记录。</div>';
+        return;
+      }
+
+      const displayRecords = latestExpanded ? allRecords : allRecords.slice(0, 3);
+      const toggleText = latestExpanded ? "收起" : `展开全部 ${allRecords.length} 条`;
+
+      container.innerHTML = displayRecords.map((record) => `
+        <div class="record-card">
+          <div class="record-head">
+            <div class="record-title">${record.title}</div>
+            <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.amount)}</div>
           </div>
-        `).join("");
+          <div class="record-meta">${record.date} · ${record.meta}</div>
+        </div>
+      `).join("") + (allRecords.length > 3 ? `
+        <button class="btn" type="button" id="latest-toggle-btn" style="width:100%;margin-top:8px;">${toggleText}</button>
+      ` : "");
+
+      const toggleBtn = document.getElementById("latest-toggle-btn");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+          latestExpanded = !latestExpanded;
+          renderLatestRecords(OrchidBookkeeping.getSalesRecords(), OrchidBookkeeping.getExpenseRecords());
+        });
       }
     }
 

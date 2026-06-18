@@ -291,6 +291,16 @@ a {
   padding: 12px 14px;
 }
 
+a.record-card {
+  display: block;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.record-card:active {
+  background: #e7f3e4;
+  box-shadow: 0 2px 8px rgba(43, 72, 50, 0.12);
+}
+
 .record-head,
 .timeline-head,
 .period-head {
