@@ -82,6 +82,7 @@
             <h3>全部记录</h3>
             <div class="record-meta" style="margin-bottom: 10px;">点击删除可移除错误记录，删除后统计数据自动刷新。</div>
             <div id="analytics-all-records"></div>
+            <button class="btn" type="button" id="records-toggle-btn" style="width:100%;margin-top:8px;display:none;">展开全部</button>
           </section>
 
           <section class="panel" style="margin-top: 12px;">
@@ -105,6 +106,7 @@
   <script src="data.js?v=2"></script>
   <script>
     let currentMode = "month";
+    let recordsExpanded = false;
 
     function buildPolylinePoints(values, minY, maxY) {
       const maxValue = Math.max(...values, 1);
@@ -227,9 +229,11 @@
       const sales = OrchidBookkeeping.getSalesRecords();
       const expenses = OrchidBookkeeping.getExpenseRecords();
       const container = document.getElementById("analytics-all-records");
+      const toggleBtn = document.getElementById("records-toggle-btn");
 
       if (!sales.length && !expenses.length) {
         container.innerHTML = '<div class="record-meta">还没有任何记录。</div>';
+        toggleBtn.style.display = "none";
         return;
       }
 
@@ -238,7 +242,10 @@
         ...expenses.map((r) => ({ ...r, _type: "expense" }))
       ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-      container.innerHTML = allRecords.map((record) => {
+      const defaultShow = 5;
+      const displayRecords = recordsExpanded ? allRecords : allRecords.slice(0, defaultShow);
+
+      container.innerHTML = displayRecords.map((record) => {
         if (record._type === "sale") {
           return `
             <div class="record-card">
@@ -266,6 +273,14 @@
           </div>
         `;
       }).join("");
+
+      // 展开/收纳按钮
+      if (allRecords.length > defaultShow) {
+        toggleBtn.style.display = "block";
+        toggleBtn.textContent = recordsExpanded ? "收起" : `展开全部 ${allRecords.length} 条`;
+      } else {
+        toggleBtn.style.display = "none";
+      }
 
       container.querySelectorAll("[data-delete-sale]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -295,6 +310,12 @@
     });
 
     document.getElementById("analytics-export-button").addEventListener("click", downloadBackup);
+
+    document.getElementById("records-toggle-btn").addEventListener("click", () => {
+      recordsExpanded = !recordsExpanded;
+      renderAllRecords();
+    });
+
     document.getElementById("analytics-import-input").addEventListener("change", async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
