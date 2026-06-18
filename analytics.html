@@ -79,6 +79,12 @@
           </section>
 
           <section class="panel" style="margin-top: 12px;">
+            <h3>全部记录</h3>
+            <div class="record-meta" style="margin-bottom: 10px;">点击删除可移除错误记录，删除后统计数据自动刷新。</div>
+            <div id="analytics-all-records"></div>
+          </section>
+
+          <section class="panel" style="margin-top: 12px;">
             <h3>导入备份</h3>
             <input class="input-box" type="file" id="analytics-import-input" accept="application/json">
             <div class="record-meta" style="margin-top: 10px;">选择之前导出的 JSON 文件，即可恢复本地数据。</div>
@@ -211,6 +217,71 @@
           </div>
         </div>
       `).join("");
+
+      renderAllRecords();
+    }
+
+    function renderAllRecords() {
+      const sales = OrchidBookkeeping.getSalesRecords();
+      const expenses = OrchidBookkeeping.getExpenseRecords();
+      const container = document.getElementById("analytics-all-records");
+
+      if (!sales.length && !expenses.length) {
+        container.innerHTML = '<div class="record-meta">还没有任何记录。</div>';
+        return;
+      }
+
+      const allRecords = [
+        ...sales.map((r) => ({ ...r, _type: "sale" })),
+        ...expenses.map((r) => ({ ...r, _type: "expense" }))
+      ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+      container.innerHTML = allRecords.map((record) => {
+        if (record._type === "sale") {
+          return `
+            <div class="record-card">
+              <div class="record-head">
+                <div class="record-title">销售 · ${record.customer || "未命名客户"}</div>
+                <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.totalAmount)}</div>
+              </div>
+              <div class="record-meta">${record.date} · ${record.totalQuantity} 株 · ${record.gradeItems.map((item) => `${item.gradeLabel}${item.quantity ? ` ${item.quantity}株` : ""}`).join(" / ")}</div>
+              <div class="actions">
+                <button class="btn" type="button" data-delete-sale="${record.id}">删除</button>
+              </div>
+            </div>
+          `;
+        }
+        return `
+          <div class="record-card">
+            <div class="record-head">
+              <div class="record-title">支出 · ${record.expenseType}</div>
+              <div class="record-amount">${OrchidBookkeeping.formatCurrencyPrecise(record.amount)}</div>
+            </div>
+            <div class="record-meta">${record.date} · ${record.paymentMethod} · ${record.note || "无备注"}</div>
+            <div class="actions">
+              <button class="btn" type="button" data-delete-expense="${record.id}">删除</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      container.querySelectorAll("[data-delete-sale]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (confirm("确定删除这条销售记录？")) {
+            OrchidBookkeeping.deleteSaleRecord(btn.dataset.deleteSale);
+            renderAnalytics();
+          }
+        });
+      });
+
+      container.querySelectorAll("[data-delete-expense]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (confirm("确定删除这条支出记录？")) {
+            OrchidBookkeeping.deleteExpenseRecord(btn.dataset.deleteExpense);
+            renderAnalytics();
+          }
+        });
+      });
     }
 
     document.querySelectorAll("[data-mode]").forEach((segment) => {
