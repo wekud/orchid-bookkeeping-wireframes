@@ -685,7 +685,7 @@ a.record-card:active {
   position: fixed;
   left: 50%;
   bottom: 10px;
-  transform: translateX(-50%) translateY(24px);
+  transform: translateX(-50%);
   width: calc(100% - 20px);
   max-width: 410px;
   padding: 10px;
@@ -694,15 +694,6 @@ a.record-card:active {
   border-radius: 18px;
   box-shadow: 0 10px 24px rgba(36, 66, 45, 0.14);
   z-index: 20;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-}
-
-.mobile-tabbar.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  pointer-events: auto;
 }
 
 .floating-total {

@@ -214,8 +214,6 @@
           <p class="section-subtitle">点击工人卡片展开，查看月度出勤日历并登记。</p>
 
           <section id="worker-list"></section>
-
-          <div id="scroll-sentinel" style="height:1px;"></div>
         </main>
       </div>
     </div>
@@ -696,14 +694,6 @@
     });
 
     renderAll();
-
-    // 滚动到底才显示导航栏
-    const tabbar = document.querySelector(".mobile-tabbar");
-    const sentinel = document.getElementById("scroll-sentinel");
-    const scrollObserver = new IntersectionObserver((entries) => {
-      tabbar.classList.toggle("visible", entries[0].isIntersecting);
-    }, { threshold: 0 });
-    scrollObserver.observe(sentinel);
   </script>
 </body>
 </html>
