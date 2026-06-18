@@ -89,6 +89,7 @@
             <h3>历史销售记录</h3>
             <div class="list" id="sales-history-list"></div>
           </section>
+          <div id="scroll-sentinel" style="height:1px;"></div>
         </main>
       </div>
     </div>
@@ -263,6 +264,17 @@
 
     updateDraftSummary();
     renderHistory();
+
+    // 滚动到底部才显示导航栏和销售合计
+    const floatingTotal = document.querySelector(".floating-total");
+    const tabbar = document.querySelector(".mobile-tabbar");
+    const sentinel = document.getElementById("scroll-sentinel");
+    const scrollObserver = new IntersectionObserver((entries) => {
+      const atBottom = entries[0].isIntersecting;
+      floatingTotal.classList.toggle("visible", atBottom);
+      tabbar.classList.toggle("visible", atBottom);
+    }, { threshold: 0 });
+    scrollObserver.observe(sentinel);
   </script>
 </body>
 </html>

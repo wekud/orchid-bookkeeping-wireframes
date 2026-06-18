@@ -78,6 +78,7 @@
             <h3>最近记录</h3>
             <div class="list" id="latest-records-list"></div>
           </section>
+          <div id="scroll-sentinel" style="height:1px;"></div>
         </main>
       </div>
     </div>
@@ -211,6 +212,13 @@
     }
 
     renderDashboard();
+
+    const tabbar = document.querySelector(".mobile-tabbar");
+    const sentinel = document.getElementById("scroll-sentinel");
+    const scrollObserver = new IntersectionObserver((entries) => {
+      tabbar.classList.toggle("visible", entries[0].isIntersecting);
+    }, { threshold: 0 });
+    scrollObserver.observe(sentinel);
   </script>
 </body>
 </html>

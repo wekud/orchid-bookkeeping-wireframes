@@ -89,6 +89,7 @@
             <input class="input-box" type="file" id="analytics-import-input" accept="application/json">
             <div class="record-meta" style="margin-top: 10px;">选择之前导出的 JSON 文件，即可恢复本地数据。</div>
           </section>
+          <div id="scroll-sentinel" style="height:1px;"></div>
         </main>
       </div>
     </div>
@@ -303,6 +304,13 @@
     });
 
     renderAnalytics();
+
+    const tabbar = document.querySelector(".mobile-tabbar");
+    const sentinel = document.getElementById("scroll-sentinel");
+    const scrollObserver = new IntersectionObserver((entries) => {
+      tabbar.classList.toggle("visible", entries[0].isIntersecting);
+    }, { threshold: 0 });
+    scrollObserver.observe(sentinel);
   </script>
 </body>
 </html>
